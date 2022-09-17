@@ -106,6 +106,9 @@ def Zgate_on_all(thetas,num_level=2):
     return Zs
 
 #------------------------------------- Gate fidelity -------------------------------------#
+def NLI(fidelity):
+    '''Negative logarithmic infidelity'''
+    return -np.log10(1-fidelity)
 
 def average_over_pure_states(M):
     '''
