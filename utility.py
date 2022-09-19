@@ -24,6 +24,109 @@ def qubit_subspace(num_level,num_transmon):
     qubit_proj = np.diag((all_indices.max(1)<=1).astype(int))
     return np.ix_(qubit_indices,qubit_indices),qubit_proj
 
+#############################################################################
+################################## MATRIX ###################################
+#############################################################################
+
+def gellmann(j,k,d):
+    '''
+    Returns a generalized Gell-Mann matrix (GGM) of dimension d.
+    
+    Follow *Bloch Vectors for Qubits* by Bertlmann and Krammer (2008)
+    . d(d-1)/2 symmetric GGMs
+    . d(d-1)/2 antisymmetric GGMs
+    . d-1 diagonal GGMs
+    . 1 identity
+    '''
+    g = np.zeros((d,d),dtype=np.complex128)
+    if j > k:
+        g[j,k] = 1
+        g[k,j] = 1
+    elif j < k:
+        g[j,k] = -1j
+        g[k,j] = 1j
+    elif j == k and j < d-1:
+        j+=1
+        g[:j,:j] = np.eye(j)
+        g[j,j] = -j
+        g *= np.sqrt(2/j/(j+1))
+    else:
+        g = np.eye(d)
+    return g
+        
+    
+def get_basis(d,jax=False):
+    '''
+    Return a basis of orthogonal Hermitian operators on a Hilbert space
+    of dimension d, with the identity element in the first place.
+    
+    Example:
+    --------
+    get_basis(2) returns the Pauli matrices (I,X,Y,Z)
+    get_basis(3) returns the Gellmann matrices
+    '''
+    basis = [gellmann(j, k, d) for j, k in product(range(d), repeat=2)][::-1]
+    return basis
+
+
+def get_reduced_basis(d,L):
+    '''
+    Return the set of operators to be tracked
+    '''
+    basis = np.array(get_basis(d))
+    size = len(basis)
+    
+    # Sort and pick basis elements
+    if d==2:
+        ind = [1,2,3]
+        factor = np.ones(3)*0.5
+    elif d==3:
+        order = np.argsort([0,6,4,7,8,1,5,2,3])
+        basis = basis[order]
+        ind = [8,1,2,3] #[1,2,3,8] #
+        factor = np.ones(4)*0.5
+        factor[0] /= np.sqrt(3)
+    else:
+        print(f'Entire basis for SU({d})')
+    
+    if L==1:
+        return np.einsum('i...,i->i...',basis[ind],factor)
+    elif L==2:
+        if d==2:
+            # Products of Paulis and Identity
+            pbasis = []
+            for i in range(1,4):
+                pbasis.append(tensor([basis[0],basis[i]]))
+            for i in range(1,4):
+                pbasis.append(tensor([basis[i],basis[0]]))
+            for i in range(1,4):
+                for j in range(1,4):
+                    pbasis.append(tensor([basis[i],basis[j]]))
+            return np.array(pbasis)
+        elif d==3:
+            # Linear combinations of products of Gell-Manns and Identity
+            pbasis = []
+            pbasis.append(4/9*( np.eye(9) + 3/4 * tensor([basis[8],basis[8]]) + 
+                                np.sqrt(3)/2 * (tensor([basis[8],basis[0]]) + tensor([basis[0],basis[8]])) ))
+            for i in range(1,4):
+                pbasis.append(2/3          * tensor([basis[0],basis[i]]) + 
+                              1/np.sqrt(3) * tensor([basis[8],basis[i]]) )
+            for i in range(1,4):
+                pbasis.append(2/3          * tensor([basis[i],basis[0]]) + 
+                              1/np.sqrt(3) * tensor([basis[i],basis[8]]) )
+            for i in range(1,4):
+                for j in range(1,4):
+                    pbasis.append(tensor([basis[i],basis[j]]))
+            return np.array(pbasis)
+    else:
+        print(f'Not implemented for {L} qudits!')
+        raise NotImplementedError
+        
+def get_ket_basis(num_level,num_transmon):
+    all_indices = np.array(list(product(range(num_level),repeat=num_transmon)))
+    qubit_indices = np.where(all_indices.max(1)<=1)[0]
+    return np.eye(num_level**num_transmon,dtype=np.complex128)[qubit_indices]
+
 
 ###################################################################################
 ################################## QUANTUM GATES ##################################
@@ -255,7 +358,7 @@ def plot_pulse(pulse,channel_labels,axs=None,xlim=None):
     
     num_channel = len(channel_labels)
     if axs is None:
-        fig, axs = plt.subplots(num_channel,1,sharex=True,figsize=(10,2*num_channel))
+        fig, axs = plt.subplots(num_channel,1,sharex=True,figsize=(10,1.5*num_channel))
     if num_channel == 1: axs = [axs]
     for i in range(num_channel):
         axs[i].fill_between(steps,pulse[:,2*i]  ,color='C3',step='post',alpha=0.4)
@@ -264,13 +367,12 @@ def plot_pulse(pulse,channel_labels,axs=None,xlim=None):
         axs[i].step(steps,pulse[:,2*i+1],'C0',where='post',label='Im')
         axs[i].set_ylabel(channel_labels[i])
         axs[i].set_ylim([-1.1,1.1])
-        axs[i].legend()
         if xlim is None:
             axs[i].hlines(0,-int(0.1*len(pulse)),len(pulse)+int(0.1*len(pulse)),'grey',alpha=0.4)
             axs[i].set_xlim([-int(0.1*len(pulse)),len(pulse)+int(0.1*len(pulse))])
         else:
             axs[i].hlines(0,*xlim,'grey',alpha=0.4)
             axs[i].set_xlim(xlim)
-        if i == num_channel-1:
-            axs[i].set_xlabel('Time step')
+        if i == 0: axs[i].legend(loc='upper right')
+        if i == num_channel-1: axs[i].set_xlabel('Time step')
     plt.show()

@@ -1,5 +1,7 @@
+import numpy as np
 from typing import Dict, List, Tuple
-from qc_utils import *
+from scipy.linalg import expm
+from utility import *
 
 PI = np.pi
 
@@ -81,3 +83,33 @@ class TransmonSimulator(object):
             
         expmap = expm(-1j*(H_sys+H_ctrl)*self.dt)
         return expmap
+    
+    def pulse_average_fidelity(self, full_pulse, U_target, qubit_indices,
+                               initial_Z_thetas=[], correct_Z_after=True) -> float:
+        U = np.eye(len(U_target))        
+        for t_step,pulse in enumerate(full_pulse):
+            U = self.get_expmap(pulse,t_step)@U
+            
+        if len(initial_Z_thetas) > 0:
+            initial_Z = Zgate_on_all(initial_Z_thetas,self.num_level)
+            M,theta = projected_overlap(U@initial_Z,U_target,qubit_indices,correct_Z_after)
+        else:
+            M,theta = projected_overlap(U,U_target,qubit_indices,correct_Z_after)
+            
+        return average_over_pure_states(M)
+    
+    def pulse_average_fidelities(self, full_pulse, U_target, qubit_indices,
+                                 initial_Z_thetas=[], correct_Z_after=True):
+        U = np.eye(len(U_target))
+        avg_fids = []
+        if len(initial_Z_thetas) > 0:
+            initial_Z = Zgate_on_all(initial_Z_thetas,self.num_level)
+            
+        for t_step,pulse in enumerate(full_pulse):
+            U = self.get_expmap(pulse,t_step)@U
+            if len(initial_Z_thetas) > 0:
+                M,theta = projected_overlap(U@initial_Z,U_target,qubit_indices,correct_Z_after)
+            else:
+                M,theta = projected_overlap(U,U_target,qubit_indices,correct_Z_after)
+            avg_fids.append(average_over_pure_states(M))
+        return np.array(avg_fids),theta,U
