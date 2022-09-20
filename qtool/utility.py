@@ -1,9 +1,12 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from itertools import product
+from scipy.optimize import minimize
+from qtool.scqp import solve_SCQP
+
 
 #############################################################################
-################################## GENERAL ##################################
+#################################### MISC ###################################
 #############################################################################
 
 def tensor(arr):
@@ -23,6 +26,80 @@ def qubit_subspace(num_level,num_transmon):
     qubit_indices = np.where(all_indices.max(1)<=1)[0]
     qubit_proj = np.diag((all_indices.max(1)<=1).astype(int))
     return np.ix_(qubit_indices,qubit_indices),qubit_proj
+
+def kets2vecs_optimized(kets,basis):
+    vecs = kets.conj()@basis@kets
+    return vecs.real
+
+def ket_coeff_to_bloch_vector(z,basis):
+    norm = np.sqrt(z[:4]@z[:4])
+    psi = z[:4].astype(np.complex128)
+    psi[1:4] *= np.exp(1j*z[4:])
+    return kets2vecs_optimized(psi/norm,basis)
+
+def block_diag_transf_mat(hamiltonian,num_level):
+    '''
+    Block diagonalize two-transmon hamiltonian
+    
+    Input: Hamiltonian with stardard indexing [00,01,02,10,11,12,20,21,22]
+    '''
+    n = np.diag(np.arange(num_level))
+    I = np.eye(num_level)
+    n1 = tensor([n,I])
+    n2 = tensor([I,n])
+    
+    # turn into blocks via indexing by number of excitations
+    perm = np.argsort(np.diag(n1 + n2))
+    idx = np.ix_(perm,perm)
+    block_n = [np.where(np.diag(n1 + n2).astype(int) == n)[0].tolist() for n in range(5)]
+    
+    S = np.eye(num_level**2,dtype=np.complex128)
+    i = 0
+    for block in block_n:
+        if len(block)>1:
+            _,evecs = np.linalg.eigh(hamiltonian[idx][i:i+len(block),i:i+len(block)])
+            for evec in evecs.T:
+                ind = abs(abs(evec)-1).argmin()
+                S[i:i+len(block),i+ind] = evec * np.sign(evec[ind])
+        i += len(block)
+        
+    # revert back to standard indexing
+    inv_perm = np.argsort(perm)
+    inv_idx = np.ix_(inv_perm,inv_perm)
+    return S[inv_idx]
+
+def pca(state,num_level,num_transmon,order=(2,1),test=False):
+    '''
+    Reduce dimension via eigendecomp
+    
+    Input: state from transmon env [d^2,basis_size]
+    Output: reduced input state for RL agent
+    '''
+    d = num_level**num_transmon
+    # Combine dms to reduce # of nonzero evals
+    dms = state.T.reshape(-1,d,d).copy()
+    dms[1:] += dms[0]
+    dms += np.eye(d)/d
+
+    order_0,order_i = order
+    evals,evecs = np.linalg.eigh(dms)
+    evals[abs(evals)<1e-14] = 0
+    trunc_evals = np.hstack([evals[0,-order_0:],evals[1:,-order_i:].flatten()]) # evals[abs(evals)>1e-10]
+    trunc_evecs = np.vstack([evecs[0,:,-order_0:].T,np.swapaxes(evecs[1:,:,-order_i:],1,2).reshape(-1,d)])
+    scaled_evecs = np.sqrt(trunc_evals)[:,None]*trunc_evecs
+
+    if test:
+        scaled_dms = np.einsum('ij,ik->ijk',scaled_evecs,scaled_evecs.conj())
+        recon_dms = [scaled_dms[:order_0].sum(0)]
+        i = 0
+        while i<len(scaled_dms)-order_0:
+            recon_dms.append(scaled_dms[order_0+i:order_0+i+order_i].sum(0))
+            i += order_i
+        recon_dms = np.array(recon_dms)
+        diff = np.linalg.norm(dms-recon_dms)/np.linalg.norm(dms)
+        print(f'Reconstruction relative error at order {order}: {diff:.3e}')
+        
+    return scaled_evecs
 
 #############################################################################
 ################################## MATRIX ###################################
@@ -209,6 +286,174 @@ def Zgate_on_all(thetas,num_level=2):
     return Zs
 
 #------------------------------------- Gate fidelity -------------------------------------#
+
+def worst_fidelity(env,method='SCQP-dm-0',bounds=None,init_guess=None,overlap_args=(None,None)):
+    '''
+    Input: ndarray of shape [num_level^2^N,basis_size]
+    Allowed method:
+    - 1-transmon: SCQP-dm-0, SLSQP-ket-2,SLSQP-ket-3
+    - 2-transmon: SLSQP-ket-7, SLSQP-dm-7 
+    '''
+    def quadprog(x,A,b):
+        return 0.5*x@A@x + x@b
+    
+    def quadprog_ketcoeff(z,A,b,basis):
+        x = ket_coeff_to_bloch_vector(z,basis)
+        return 0.5*x@A@x + x@b 
+        
+    eps = 1e-7
+    num_param = [int(s) for s in method.split('-') if s.isdigit()][0]
+    M_qubit,theta = overlap_args
+    if 'dm' in method:
+        if theta is not None:
+            raise NotImplementedError('Fix virtualZ_on_control, now can perform Z on all transmons')
+            virtualZI = virtualZ_on_control(theta,num_level=3)
+            correction = tensor([virtualZI,virtualZI.conj()])
+        else:
+            correction = np.eye(env.get_state().shape[0])
+        A,b,constraints = bloch_args(env,correction)
+        
+        # reduce to eigenvalue problem
+        if (abs(b)<eps).all() and constraints is None:
+            evals,evecs = np.linalg.eigh(A)
+            return evecs[:,0],0.5*evals[0] #+ c
+        
+        elif 'SCQP' in method:
+            x = solve_SCQP(A,b)
+            return x,quadprog(x,A,b) #+c
+        
+        elif 'SLSQP' in method:
+            # only implemented for 2-transmon
+            return SLSQP_minimize(num_param,c,quadprog_ketcoeff,(A,b,get_reduced_basis(d=2,L=2)))
+        
+    elif 'ket' in method:
+        return SLSQP_minimize(num_param,0,fidelity_from_ket,(M_qubit),bounds=bounds)
+    
+def SLSQP_minimize(num_param,const,obj_func,args,jac=None,init_guess=None,bounds=None,cons=()):
+    '''
+    Use SLSQP method from scipy
+    Add two additional runs from random initial guess when obj_fun excess the threshold
+    '''
+    z0 = np.random.random(num_param) if init_guess is None else init_guess
+    options = {'maxiter': 500, 'ftol': 1e-10, 'disp': False, 'eps': 1e-10}
+    res = minimize(obj_func,z0,args=args,jac=jac,method='SLSQP',bounds=bounds,options=options,constraints=cons)
+    if res.fun+const < 0.99:
+        return res.x,res.fun+const
+    else:
+        xs,fs = [res.x],[res.fun]
+        for i in range(2):
+            res = minimize(obj_func,np.random.random(num_param),args=args,jac=jac,method='SLSQP',bounds=bounds,options=options,constraints=cons)
+            xs.append(res.x)
+            fs.append(res.fun)
+        return xs[np.argmin(fs)],min(fs)+const
+
+### Both fidelity functions are valid ###
+def fidelity_from_basis_kets(z,evolved,target,num_qubit):
+    '''
+    Input
+        z: real parameters
+        evolved: evolved basis kets psi_i(t)
+        target:  target basis kets psi^T_i
+    Output
+        |<psi^T|psi(t)>|^2 where psi = z_i@psi_i
+    '''
+    psi = param2ket(z,num_qubit)
+    overlap = psi.conj()@target.T.conj()@evolved@psi
+    res = overlap.conj()*overlap
+    assert abs(res.imag) < 1e-10
+    return res.real
+
+# tiny tiny bit faster
+def fidelity_from_ket(z,M_qubit):
+    '''
+    Input
+        z: real parameters
+        M_qubit[k,n,n]: overlap between target and evolution
+    Output
+        |<psi|M|psi>|^2
+    '''
+    psi = param2ket(z,M_qubit.shape[-1]//2)
+    overlap = psi.conj()@M_qubit@psi
+    res = overlap.conj()@overlap
+    # print(abs(res.imag))
+    assert abs(res.imag) < 1e-10
+    return res.real
+
+def param2ket(z,num_qubit):
+    ''' From real parameters to a complex ket'''
+    if num_qubit == 1:
+        # 2 DOFs: (z,theta) -> psi = sqrt(1-z**2)|0> + z*exp(1j*theta)|1>
+        if len(z) == 2:
+            psi = np.array([np.sqrt(1-z[0]**2),z[0]*np.exp(1j*z[1])])
+        # 3 DOFs: (z0,z1,theta) -> psi = z0|0> + z1*exp(1j*theta)|1>
+        elif len(z) == 3:
+            psi = z[:2].astype(np.complex128)/np.sqrt(z[:2]@z[:2])
+            psi[1] *= np.exp(1j*z[2])
+    elif num_qubit == 2:
+        # 7 DOFs: (z0,z1,z2,z3,theta1,theta2,theta3)
+        if len(z) == 7:
+            psi = z[:4].astype(np.complex128)/np.sqrt(z[:4]@z[:4])
+            psi[1:4] *= np.exp(1j*z[4:])
+    else:
+        raise NotImplementedError
+    
+    return psi
+
+def bloch_args(env,correction):
+    '''
+    Input: ndarray of shape [num_level^2^N,basis_size]
+    Return:
+        Bloch representation arguments, i.e. A_ij and b_i
+    '''
+    num_transmon,num_level = env.sim.L,env.sim.num_level
+    evolved_basis,target_basis = correction@env.get_state(),env.target_state
+
+    eps = 5e-8
+    if num_level == 2:
+        
+        if num_transmon == 1:
+            A = (evolved_basis.T.conj() @ target_basis+
+                 target_basis.T.conj() @ evolved_basis)
+            b = np.zeros(len(A))
+            c = 0.5
+            constraints = None
+        else:
+            print(f'Worst fidelity is not implemented!')
+            raise NotImplementedError
+
+    elif num_level == 3:
+        
+        if num_transmon == 1:
+            # first element is lambda_8
+            evolved_pauli,evolved_lam8 = evolved_basis[:,1:],evolved_basis[:,0]
+            target_pauli,target_lam8 = target_basis[:,1:],target_basis[:,0]
+            c = (1/3) + (evolved_lam8@target_lam8)
+            b = (evolved_lam8.conj() @ target_pauli + 
+                 target_lam8.conj() @ evolved_pauli)
+            A = (evolved_pauli.T.conj() @ target_pauli +
+                 target_pauli.T.conj() @ evolved_pauli) + c*np.eye(len(b))
+            constraints = None
+            
+        elif num_transmon == 2:
+            # first element is Lambda_0
+            evolved_pauli,evolved_lam0 = evolved_basis[:,1:],evolved_basis[:,0]
+            target_pauli,target_lam0 = target_basis[:,1:],target_basis[:,0]
+            b = (evolved_lam0.conj() @ target_pauli + 
+                 target_lam0.conj()  @ evolved_pauli)/16
+            A = evolved_lam0.conj()@target_lam0/24*np.eye(len(b)) +\
+                (evolved_pauli.T.conj() @ target_pauli +
+                 target_pauli.T.conj()  @ evolved_pauli)/16
+                 
+            constraints = 'useless string'
+
+        else:
+            print(f'Worst fidelity is not implemented!')
+            raise NotImplementedError
+        assert (abs(b.imag)<eps).all()
+        assert (abs(A.imag)<eps).all()
+        assert (abs(A.real.T-A.real)<eps).all()
+        return A.real,b.real,constraints    
+
 def NLI(fidelity):
     '''Negative logarithmic infidelity'''
     return -np.log10(1-fidelity)
@@ -314,6 +559,17 @@ def super2kraus(super_op,test=False):
 ###########################################################################
 
 #---------------------------- Common pulses ------------------------------#
+
+def drag(x,amp,beta,sig):
+    gauss = amp*np.exp( -(x-x.max()/2)**2 / (2*sig**2) )
+    return np.array([gauss,beta*( -(x-x.max()/2) / (sig**2) )*gauss]).T
+
+def cr1(x_gauss,x_const,amp,sig,phase):
+    gauss = amp*np.exp( -(x_gauss-x_gauss.max()/2)**2 / (2*sig**2) )
+    const = gauss[len(x_gauss)//2]*x_const
+    pulse = np.hstack([gauss[:len(x_gauss)//2],const,gauss[len(x_gauss)//2:]])
+    return pulse[:,None]*np.array([np.cos(phase),np.sin(phase)])
+
 def DRAG(num_seg, amp, sig, beta):
     '''
     DRAG pulse for implementing 1 qubit rotation
