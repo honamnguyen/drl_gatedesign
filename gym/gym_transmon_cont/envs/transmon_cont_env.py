@@ -19,12 +19,12 @@ class ContinuousTransmonEnv(gym.Env):
         self.sim_params = kw['qsim_params']
         self.step_params = kw['step_params']
         self.qubit_indices = kw['qubit_indices']
-        self.action_size = kw['action_size']
+        self.channels = kw['channels']
         self.sub_action_scale = kw['sub_action_scale']
         self.end_amp_window = kw['end_amp_window']
         self.tnow = 0
                 
-        self.action_space = spaces.Box(-1,1,[self.action_size])
+        self.action_space = spaces.Box(-1,1,[len(self.channels)])
         self.update_simulator(kw['sim_name'])           
         
         # rotating target unitary to simulation frame
@@ -46,7 +46,12 @@ class ContinuousTransmonEnv(gym.Env):
             action = input_action
             
         if evolve_method == 'exact':
-            expmap = self.sim.get_expmap(action,self.tnow)
+            if len(self.channels) == self.sim.num_channel:
+                expmap = self.sim.get_expmap(action,self.tnow)
+            else:
+                expanded_action = np.zeros(self.sim.num_channel)
+                expanded_action[self.channels] = action
+                expmap = self.sim.get_expmap(expanded_action,self.tnow)
             expmap_super = tensor([expmap,expmap.conj()])
 
         else:
@@ -111,7 +116,7 @@ class ContinuousTransmonEnv(gym.Env):
         self.map = np.eye(N)
         self.map_super = np.eye(N**2)
         self.tnow = 0
-        self.prev_action = np.zeros(self.action_size)
+        self.prev_action = np.zeros(len(self.channels))
         
         # get fidelity of the unevolved basis states
         _,_,_,_,reward_scheme,reward_type,method = self.step_params.values()
@@ -133,7 +138,7 @@ class ContinuousTransmonEnv(gym.Env):
             self.fid = None
         
         state = np.hstack([self.get_state(self.rl_state).flatten().view(np.float64),
-                           np.zeros(self.action_size)])
+                           np.zeros(len(self.channels))])
         return state
     
     def render(self, mode='human'):

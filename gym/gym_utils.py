@@ -6,7 +6,7 @@ def initialize_transmon_env(sim_name, num_transmon, num_level, sim_frame_rotatio
                             num_seg, dt, target_gate,
                             rl_state, pca_order,
                             reward_type, reward_scheme, fid_threshold, worstfid_method,
-                            action_size, sub_action_scale, end_amp_window, evolve_method):
+                            channels, sub_action_scale, end_amp_window, evolve_method):
     kw = {}
     kw['qsim_params'] = {'num_transmon': num_transmon,
                          'num_level': num_level,
@@ -42,7 +42,7 @@ def initialize_transmon_env(sim_name, num_transmon, num_level, sim_frame_rotatio
     kw['init_ket'] = get_ket_basis(num_level,num_transmon).T if 'ket' in rl_state else None
     
     # Continuous actions
-    kw['action_size'] = action_size
+    kw['channels'] = channels
     kw['sub_action_scale'] = sub_action_scale
     kw['end_amp_window'] = end_amp_window
     
