@@ -1,6 +1,15 @@
 import numpy as np
 from qtool.utility import *
 
+def initialize_transmon_env_sqrtZX():
+    num_transmon = 2
+    num_level = 3
+    sim_frame_rotation = False
+    anharm   = 2*np.pi * np.array([-319.7,-320.2])*MHz
+    drive    = 2*np.pi * np.array([30,300,30,300])*MHz
+    detune   = 2*np.pi * np.array([115,0])*MHz
+    coupling = 2*np.pi * np.array([args.coupling])*MHz
+
 def initialize_transmon_env(sim_name, num_transmon, num_level, sim_frame_rotation,
                             drive, detune, anharm, coupling, ctrl_noise,
                             num_seg, dt, target_gate,
