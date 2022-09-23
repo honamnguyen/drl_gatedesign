@@ -1,6 +1,8 @@
-import os
+import os,tempfile
 from tensorboardX import SummaryWriter
 import numpy as np
+from datetime import date
+from ray.tune.logger import UnifiedLogger
 
 class Logger:
     def __init__(self, log_dir, n_logged_samples=10, summary_writer=None):
@@ -68,3 +70,13 @@ class Logger:
 
     def flush(self):
         self._summ_writer.flush()
+        
+        
+def rllib_log_creator(custom_path, custom_str):
+    logdir_prefix = f'{date.today()}_{custom_str}'
+    def logger_creator(config):
+        if not os.path.exists(custom_path):
+            os.makedirs(custom_path)
+        logdir = tempfile.mkdtemp(prefix=logdir_prefix, dir=custom_path)
+        return UnifiedLogger(config, logdir, loggers=None)
+    return logger_creator
