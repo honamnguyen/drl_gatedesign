@@ -93,10 +93,11 @@ if __name__ == "__main__":
         env = 'transmon-cont-v7',
         env_config = transmon_kw(args),
     )
-    config.min_sample_timesteps_per_iteration = 1
+    config.min_sample_timesteps_per_iteration = 0
+    config.timesteps_per_iteration = 100
     
     # For logging
-    save_path = '/Users/honamnguyen/MEGA/Berkeley/RL Pulse Optimization/Code/DQN_pulse/drl_gatedesign/data/'
+    save_path = '../../../data/'
     os.makedirs(save_path, exist_ok=True)
     run = f'{args.targetgate}_{args.study}_{str(np.random.randint(10000)).zfill(4)}_'
     print(f'\n---> Run {run}\n')
@@ -105,13 +106,15 @@ if __name__ == "__main__":
     trainer = config.build(
         logger_creator = rllib_log_creator(os.path.expanduser(save_path+'ray_results'), run)
     )
+    for key in config.to_dict():
+        print(key,config.to_dict()[key])
     # trainer = config.build()
     
-    for i in tqdm(range(int(1e3))):
+    for i in tqdm(range(int(1e4))):
         result = trainer.train()
         # print(result)
-        if i % 50 == 0:
-            trainer.save()
+        # if i % 1000 == 0:
+    trainer.save()
     ray.shutdown()
 
 
