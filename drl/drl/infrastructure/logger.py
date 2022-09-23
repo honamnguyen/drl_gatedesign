@@ -73,6 +73,7 @@ class Logger:
         
         
 def rllib_log_creator(custom_path, custom_str):
+    '''For custom log_dir in ray'''
     logdir_prefix = f'{date.today()}_{custom_str}'
     def logger_creator(config):
         if not os.path.exists(custom_path):
