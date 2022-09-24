@@ -10,11 +10,13 @@ def write_dict_to_file(name,d):
 def parser_init(parser):
 
     ### ----- PARSING ARGUMENTS ----- ###
-    parser.add_argument('-logtraindata',action=argparse.BooleanOptionalAction,help='Enable training data logging. Default: None')
+    parser.add_argument('-slurm',action=argparse.BooleanOptionalAction,help='Running on slurm. Default: None')
     parser.add_argument('-study',default='NoStudy',help='Study name for easy data analysis. Default: NoStudy.')
     
     # rllib
     parser.add_argument('-numworkers',type=int,default=0,help='Number of workers for data collection. Default: 0')    
+    parser.add_argument('-numiter',type=int,default=5000,help='Number of iteration. Default: 5000')    
+    parser.add_argument('-stepsperiter',type=int,default=1000,help='Timesteps per iteration. Default: 1000')    
     
     # environment
     parser.add_argument('-numtransmon',type=int,default=2,help='Number of transmons. Default: 2')

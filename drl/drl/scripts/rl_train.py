@@ -1,6 +1,6 @@
 import numpy as np
 import argparse, os
-from datetime import date
+from datetime import date, datetime
 from tqdm import tqdm
 
 
@@ -10,62 +10,17 @@ from drl.infrastructure.logger import rllib_log_creator
 import ray
 from ray.rllib.algorithms.ddpg.ddpg import DDPGConfig
 from ray.tune.registry import register_env
-# from ray.rllib.models import MODEL_DEFAULTS
 
-
-# model_config = MODEL_DEFAULTS.copy()
-# model_config["fcnet_hiddens"] = [128, 128]
-# model_config["fcnet_activation"] = "tanh"
-
-# trainer = DQNTrainer(env=SingleQBit,
-#                      config={
-#                             "num_workers": 0,
-#                             "num_envs_per_worker": 16,
-#                             "num_gpus": 0,
-#                             "num_cpus_per_worker": 1,
-#                             "noisy": True,
-#                             "sigma0": 0.5,
-#                             "dueling": True,
-#                             "hiddens": [128, 128,]
-#                             "gamma": 0.99,
-#                             "train_batch_size": 200,
-#                             "rollout_fragment_length": 200,
-#                             "framework": "torch",
-#                             "horizon": 100,
-#                             "seed": 42,
-#                      })
-
-# trainer = PPOTrainer(env=SingleQBit,
-#                      config={
-#                          "num_workers": 0,
-#                          "num_cpus_for_driver": 8,
-#                          "num_envs_per_worker": 4,
-#                          "num_gpus": 0,
-#                          "num_cpus_per_worker": 1,
-#                          "sgd_minibatch_size": 1000,
-#                          "lr": 0.0005,
-#                          'batch_mode': 'truncate_episodes',
-#                          "num_sgd_iter": 10,
-#                          "horizon": 1000,
-#                          "framework": "torch",
-#                          "seed": 42,
-#                          "model": model_config,
-#                      })
-
-# weights = torch.load("pretrained.pth")
-# trainer.set_weights({"default_policy": weights})
-
-# print(trainer.get_weights())
 
 def transmon_env_creator(kw):
     import gym
     import gym_transmon_cont
     return gym.make('transmon-cont-v7',**kw)
 
-ray.init(
-    dashboard_host="0.0.0.0",
-    dashboard_port=40001,
-)
+# ray.init(
+#     dashboard_host="0.0.0.0",
+#     dashboard_port=40001,
+# )
 
 if __name__ == "__main__":
     
@@ -99,7 +54,7 @@ if __name__ == "__main__":
         env_config = transmon_kw(args),
     )
     config = config.reporting(
-        min_sample_timesteps_per_iteration = 1000
+        min_sample_timesteps_per_iteration = args.stepsperiter
     )
     config = config.rollouts(
         num_rollout_workers = args.numworkers
@@ -115,16 +70,29 @@ if __name__ == "__main__":
     trainer = config.build(
         logger_creator = rllib_log_creator(os.path.expanduser(save_path+'ray_results'), run)
     )
-#     trainer = config.build()
-#     for key in config.to_dict():
-#         print(key,config.to_dict()[key])
     
-    for i in tqdm(range(int(5e3))):
-        result = trainer.train()
-        # print(result)
-        if i % 1000 == 0:
-            trainer.save()
-    ray.shutdown()
+    save_interval = int(1e6)
+    if args.slurm:
+        print_interval = int(1e4)
+        start_time = datetime.now()
+        for i in range(args.numiter):
+            # track time
+            if i*args.stepsperiter % print_interval == 0:
+                iter_time = datetime.now()
+            result = trainer.train()     
+            if i*args.stepsperiter % print_interval == 0:
+                now = datetime.now()
+                print(f'{i}/{args.numiter} [{(now-start_time).replace(microsecond=0)},  {delta.total_seconds():.2f}s/it]')
+            # save
+            if i*args.stepsperiter % save_interval == 0:
+                trainer.save()    
+    else:
+        for i in tqdm(range(args.numiter)):
+            result = trainer.train()
+            # print(result)
+            if i*args.stepsperiter % save_interval == 0:
+                trainer.save()
+    # ray.shutdown()
 
 
 # # ``Tuner.fit()`` allows setting a custom log directory (other than ``~/ray-results``)
