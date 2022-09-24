@@ -41,10 +41,13 @@ class ContinuousTransmonEnv(gym.Env):
             
     def evolve(self, input_action, evolve_method='exact'):
         if self.sub_action_scale is not None:
-            action = input_action*self.sub_action_scale + self.prev_action 
+            action = input_action*self.sub_action_scale + self.prev_action
+            action[action>1] = 1
+            action[action<-1] = -1
         else:
             action = input_action
             
+        assert abs(action).max()<=1
         if evolve_method == 'exact':
             if len(self.channels) == self.sim.num_channel:
                 expmap = self.sim.get_expmap(action,self.tnow)
