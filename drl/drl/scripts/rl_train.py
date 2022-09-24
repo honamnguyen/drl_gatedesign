@@ -1,6 +1,6 @@
 import numpy as np
 import argparse, os
-from datetime import date, datetime
+from datetime import date
 from tqdm import tqdm
 
 
@@ -71,26 +71,10 @@ if __name__ == "__main__":
         logger_creator = rllib_log_creator(os.path.expanduser(save_path+'ray_results'), run)
     )
     
-    save_interval = int(1e6)
-    if args.slurm:
-        print_interval = int(1e4)
-        start_time = datetime.now()
-        for i in range(args.numiter):
-            # track time
-            if i*args.stepsperiter % print_interval == 0:
-                iter_time = datetime.now()
-            result = trainer.train()     
-            if i*args.stepsperiter % print_interval == 0:
-                now = datetime.now()
-                print(f'{i}/{args.numiter} [{now.replace(microsecond=0)-start_time.replace(microsecond=0)},  {(now-iter_time).total_seconds():.2f}s/it]')
-            # save
-            if i*args.stepsperiter % save_interval == 0:
-                trainer.save()    
-    else:
-        for i in tqdm(range(args.numiter)):
+    for i in tqdm(range(args.numiter)):
             result = trainer.train()
             # print(result)
-            if i*args.stepsperiter % save_interval == 0:
+            if i*args.stepsperiter % int(1e6) == 0:
                 trainer.save()
     # ray.shutdown()
 
