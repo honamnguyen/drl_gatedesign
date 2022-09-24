@@ -13,6 +13,9 @@ def parser_init(parser):
     parser.add_argument('-logtraindata',action=argparse.BooleanOptionalAction,help='Enable training data logging. Default: None')
     parser.add_argument('-study',default='NoStudy',help='Study name for easy data analysis. Default: NoStudy.')
     
+    # rllib
+    parser.add_argument('-numworkers',type=int,default=0,help='Number of workers for data collection. Default: 0')    
+    
     # environment
     parser.add_argument('-numtransmon',type=int,default=2,help='Number of transmons. Default: 2')
     parser.add_argument('-numlevel',type=int,default=3,help='Number of level in Duffing oscillator. Default: 3')

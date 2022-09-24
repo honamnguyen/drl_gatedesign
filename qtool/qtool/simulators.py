@@ -139,6 +139,10 @@ class quspin_duffing_simulator():
     def __init__(self, params):
         L = self.L = params['num_transmon']
         self.num_level = params['num_level']
+        if self.L == 1:
+            self.num_channel = 2
+        elif self.L == 2:
+            self.num_channel = 8
         self.basis = boson_basis_1d(L=self.L, sps=self.num_level)
 
         self.ctrl = params['ctrl']

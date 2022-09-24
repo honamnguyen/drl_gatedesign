@@ -1,4 +1,5 @@
 import os,tempfile
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 from tensorboardX import SummaryWriter
 import numpy as np
 from datetime import date

@@ -3,8 +3,7 @@ import argparse, os
 from datetime import date
 from tqdm import tqdm
 
-import gym
-import gym_transmon_cont
+
 from drl.infrastructure.utils import *
 from drl.infrastructure.logger import rllib_log_creator
 
@@ -58,6 +57,11 @@ from ray.tune.registry import register_env
 
 # print(trainer.get_weights())
 
+def transmon_env_creator(kw):
+    import gym
+    import gym_transmon_cont
+    return gym.make('transmon-cont-v7',**kw)
+
 ray.init(
     dashboard_host="0.0.0.0",
     dashboard_port=40001,
@@ -65,7 +69,8 @@ ray.init(
 
 if __name__ == "__main__":
     
-    register_env('transmon-cont-v7', lambda kw: gym.make('transmon-cont-v7',**kw))    
+#     register_env('transmon-cont-v7', lambda kw: gym.make('transmon-cont-v7',**kw))    
+    register_env('transmon-cont-v7', transmon_env_creator)    
     ### ----- PARSING ARGUMENTS ----- ###
     args = parser_init(argparse.ArgumentParser())
     
@@ -93,8 +98,12 @@ if __name__ == "__main__":
         env = 'transmon-cont-v7',
         env_config = transmon_kw(args),
     )
-    config.min_sample_timesteps_per_iteration = 0
-    config.timesteps_per_iteration = 100
+    config = config.reporting(
+        min_sample_timesteps_per_iteration = 1000
+    )
+    config = config.rollouts(
+        num_rollout_workers = args.numworkers
+    )
     
     # For logging
     save_path = '../../../data/'
@@ -106,15 +115,15 @@ if __name__ == "__main__":
     trainer = config.build(
         logger_creator = rllib_log_creator(os.path.expanduser(save_path+'ray_results'), run)
     )
-    for key in config.to_dict():
-        print(key,config.to_dict()[key])
-    # trainer = config.build()
+#     trainer = config.build()
+#     for key in config.to_dict():
+#         print(key,config.to_dict()[key])
     
-    for i in tqdm(range(int(1e4))):
+    for i in tqdm(range(int(5e3))):
         result = trainer.train()
         # print(result)
-        # if i % 1000 == 0:
-    trainer.save()
+        if i % 1000 == 0:
+            trainer.save()
     ray.shutdown()
 
 
