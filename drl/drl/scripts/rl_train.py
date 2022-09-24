@@ -82,7 +82,7 @@ if __name__ == "__main__":
             result = trainer.train()     
             if i*args.stepsperiter % print_interval == 0:
                 now = datetime.now()
-                print(f'{i}/{args.numiter} [{now.replace(microsecond=0)-start_time.replace(microsecond=0)},  {delta.total_seconds():.2f}s/it]')
+                print(f'{i}/{args.numiter} [{now.replace(microsecond=0)-start_time.replace(microsecond=0)},  {(now-iter_time).total_seconds():.2f}s/it]')
             # save
             if i*args.stepsperiter % save_interval == 0:
                 trainer.save()    
