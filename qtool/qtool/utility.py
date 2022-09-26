@@ -241,7 +241,12 @@ def common_gate(name):
                  
                  'NOTC': tensor([I,zero])+tensor([X,one]),
                  
-                 'SWAP': np.array([[1, 0, 0, 0],
+                 'NOTCCNOT': np.array([[1, 0, 0, 0],
+                                       [0, 0, 1, 0],
+                                       [0, 0, 0, 1],
+                                       [0, 1, 0, 0]]),
+                 
+                  'SWAP': np.array([[1, 0, 0, 0],
                                    [0, 0, 1, 0],
                                    [0, 1, 0, 0],
                                    [0, 0, 0, 1]]), 
@@ -488,7 +493,10 @@ def projected_overlap(operator,target,qubit_indices,correct_Z_after=False):
           for 2q: sum_M = ( (M[0,0]+M[1,1]).conj() * (M[2,2]+M[3,3]) ).sum()
     '''
     def _correction_angle(sum_M):
-        theta = np.nan_to_num(np.arctan(-sum_M.imag/sum_M.real))
+        if abs(sum_M.real)<1e-16:
+            theta = np.pi/2*np.sign(-sum_M.imag*sum_M.real)
+        else:
+            theta = np.nan_to_num(np.arctan(-sum_M.imag/sum_M.real))
         # Pick the other solution using the sign of 2nd deriv
         if np.sin(theta)*sum_M.imag > np.cos(theta)*sum_M.real: 
             theta = theta-np.sign(theta)*np.pi
