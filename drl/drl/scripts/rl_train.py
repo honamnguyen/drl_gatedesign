@@ -58,7 +58,11 @@ if __name__ == "__main__":
     config = config.rollouts(
         num_rollout_workers = args.numworkers
     )
-    
+    if args.seed:
+        config = config.debugging(
+            seed=args.seed
+        )
+        
     # For logging
     save_path = '../../../data/'
     os.makedirs(save_path, exist_ok=True)
@@ -73,7 +77,7 @@ if __name__ == "__main__":
     for i in tqdm(range(args.numiter)):
             result = trainer.train()
             # print(result)
-            if i*args.stepsperiter % int(1e6) == 0:
+            if i*args.stepsperiter % int(1e4) == 0:
                 trainer.save()
     # ray.shutdown()
 

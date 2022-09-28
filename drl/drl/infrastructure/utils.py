@@ -12,6 +12,8 @@ def parser_init(parser):
     ### ----- PARSING ARGUMENTS ----- ###
     parser.add_argument('-slurm',action=argparse.BooleanOptionalAction,help='Running on slurm. Default: None')
     parser.add_argument('-study',default='NoStudy',help='Study name for easy data analysis. Default: NoStudy.')
+    parser.add_argument('-checkpointpath',default='NoStudy',help='Fragments of checkpoint path. Default: NoStudy.')
+
     
     # rllib
     parser.add_argument('-numworkers',type=int,default=0,help='Number of workers for data collection. Default: 0')    
@@ -43,6 +45,7 @@ def parser_init(parser):
     parser.add_argument('-qnetscale',type=int,default=3,help='Q-net output scale after tanh. Default: 3')
     
     # training
+    parser.add_argument('-seed',type=int,default=None,help='Seed. Default: None')
     parser.add_argument('-gamma',type=float,default=0.99,help='Discount rate gamma. Default: 0.99')
     parser.add_argument('-lr',type=float,default=1e-4,help='Learning rate. Default: 1e-4')
     parser.add_argument('-actorlr',type=float,default=1e-4,help='Actor learning rate. Default: 1e-4')
