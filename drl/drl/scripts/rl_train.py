@@ -44,6 +44,12 @@ if __name__ == "__main__":
         actor_hidden_activation = args.activation,
         critic_hidden_activation = args.activation,
     )
+    if args.td3policydelay:
+        config = config.training(
+            twin_q=True,
+            policy_delay = args.td3policydelay,
+            smooth_target_policy = True
+        )   
     config = config.evaluation(
         evaluation_interval = args.testiters,
         evaluation_duration = args.testcount,

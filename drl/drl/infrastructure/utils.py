@@ -57,6 +57,8 @@ def parser_init(parser):
     parser.add_argument('-testcount',type=int,default=1,help='Number of tests to average over. Default: 1')
     parser.add_argument('-checkpoints',default=None,help='Checkpoints in terms of average of last 10 test rewards. Default: None')
     parser.add_argument('-initmodel',default=None,help='Initial model to train from. Default: None')
+    parser.add_argument('-td3policydelay',type=int,default=None,help='TD3 modification, policydelay. Default: None')
+
     
     return parser.parse_args()
 
