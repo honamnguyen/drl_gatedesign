@@ -53,7 +53,7 @@ def parser_init(parser):
     parser.add_argument('-batchsize',type=int,default=64,help='Batch size. Default: 64')
     parser.add_argument('-replaysize',type=int,default=int(1e5),help='Replay buffer size. Default: 100000')
     parser.add_argument('-replayinitial',type=int,default=int(1e4),help='Number of transitions in replay buffer before training starts. Default: 10000')
-    parser.add_argument('-testiters',type=int,default=int(1e3),help='Number of iterations between testing. Default: 1000')
+    parser.add_argument('-evaluationinterval',type=int,default=1,help='Number of train() step between evaluation. Default: 1')
     parser.add_argument('-testcount',type=int,default=1,help='Number of tests to average over. Default: 1')
     parser.add_argument('-checkpoints',default=None,help='Checkpoints in terms of average of last 10 test rewards. Default: None')
     parser.add_argument('-initmodel',default=None,help='Initial model to train from. Default: None')
