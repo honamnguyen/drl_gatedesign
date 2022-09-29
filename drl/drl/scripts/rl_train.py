@@ -51,7 +51,7 @@ if __name__ == "__main__":
             smooth_target_policy = True,
         )   
     config = config.evaluation(
-        evaluation_interval = args.testiters,
+        evaluation_interval = args.evaluationinterval,
         evaluation_duration = args.testcount,
     )
     config = config.environment(
