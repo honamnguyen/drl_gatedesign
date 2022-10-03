@@ -40,9 +40,13 @@ if __name__ == "__main__":
         actor_hidden_activation = args.activation,
         critic_hidden_activation = args.activation,
     )
+    config = config.exploration(
+        explore = False,
+    )
     config = config.evaluation(
-        evaluation_interval = args.testiters,
+        evaluation_interval = args.evaluationinterval,
         evaluation_duration = args.testcount,
+        # evaluation_config = {'explore': False}
     )
     config = config.environment(
         env = 'transmon-cont-v7',
@@ -64,55 +68,36 @@ if __name__ == "__main__":
     # ray_path = '$drl_gatedesign/data/ray_results/'
    
     agent = ddpg.DDPG(config=config)
-    # print(agent.logdir)
-#     env = transmon_env_creator(transmon_kw(args))
-#     print('\n------Untrained-----')
+    env = transmon_env_creator(transmon_kw(args))
+    print('\n------Untrained-----')
     
-#     episode_reward = 0
-#     done = False
-#     obs = env.reset()
-#     while not done:
-#         action = agent.compute_single_action(obs)
-#         obs, reward, done, info = env.step(action)
-#         episode_reward += reward
-#     print(reward)
+    episode_reward = 0
+    done = False
+    obs = env.reset()
+    while not done:
+        action = agent.compute_single_action(obs)
+        obs, reward, done, info = env.step(action)
+        episode_reward += reward
+    print(episode_reward)
     
-    checkpoint_path = f'{ray_path}2022-09-27_sqrtZX_checkpointpath_7011_rjc4o8eo/checkpoint_000016'
+    # checkpoint_path = f'{ray_path}2022-09-23_sqrtZX_NoStudy_9456_52fm55le/checkpoint_004001'
     
-#     print()
-#     print(os.path.isdir(checkpoint_path))
-    
-#     if not os.path.exists(checkpoint_path):
-#         raise FileNotFoundError("Path does not exist", checkpoint_path)
-#     if os.path.isdir(checkpoint_path):
-#         checkpoint_dir = checkpoint_path
-#     else:
-#         checkpoint_dir = os.path.dirname(checkpoint_path)
-#     while checkpoint_dir != os.path.dirname(checkpoint_dir):
-#         print('in while')
-#         if os.path.exists(os.path.join(checkpoint_dir, ".is_checkpoint")):
-#             break
-#         checkpoint_dir = os.path.dirname(checkpoint_dir)
-#     else:
-#         raise FileNotFoundError(
-#             "Checkpoint directory not found for {}".format(checkpoint_path)
-#         )
-            
-    agent.restore(checkpoint_path)
-     
-#     print(glob.glob(f'{ray_path}*{args.checkpointpath}*/checkpoint*/checkpoint*'))
-#     for checkpoint in glob.glob(f'{ray_path}*{args.checkpointpath}*/checkpoint*/checkpoint*'):
-#     # for checkpoint in glob.glob(f'{ray_path}*{args.checkpointpath}*/checkpoint*'):
-#         print('\n------Trained-----')
-#         print(checkpoint)
-#         print()
-#         agent.restore(checkpoint)
-        
-#         episode_reward = 0
-#         done = False
-#         obs = env.reset()
-#         while not done:
-#             action = agent.compute_single_action(obs)
-#             obs, reward, done, info = env.step(action)
-#             episode_reward += reward
-#         print(reward)
+    # print(glob.glob(f'{ray_path}*{args.checkpointpath}*/checkpoint*'))
+    print('\n------Trained-----')
+    for checkpoint in glob.glob(f'{ray_path}*{args.checkpointpath}*/checkpoint*'):
+        agent.restore(checkpoint)        
+        for i in range(3):
+            print(f'--i={i}--')
+            episode_reward = 0
+            done = False
+            obs = env.reset()
+            rewards = []
+            while not done:
+                action = agent.compute_single_action(obs)
+                # print(action)
+                obs, reward, done, info = env.step(action)
+                episode_reward += reward
+                rewards.append(reward)
+            # print(rewards)
+            print(f'{checkpoint.split("/")[-1]}: {episode_reward}')
+                         
