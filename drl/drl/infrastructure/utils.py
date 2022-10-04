@@ -59,8 +59,8 @@ def parser_init(parser):
     parser.add_argument('-initmodel',default=None,help='Initial model to train from. Default: None')
     parser.add_argument('-td3policydelay',type=int,default=-1,help='TD3 modification, policydelay. Default: -1')
 
-    
-    return parser.parse_args()
+    return parser
+    # return parser.parse_args()
 
 def transmon_kw(args):
     

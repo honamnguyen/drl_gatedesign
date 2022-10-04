@@ -26,7 +26,7 @@ if __name__ == "__main__":
 #     register_env('transmon-cont-v7', lambda kw: gym.make('transmon-cont-v7',**kw))    
     register_env('transmon-cont-v7', transmon_env_creator)    
     ### ----- PARSING ARGUMENTS ----- ###
-    args = parser_init(argparse.ArgumentParser())
+    args = parser_init(argparse.ArgumentParser()).parse_args()
     
     config = DDPGConfig().framework('torch')
     
