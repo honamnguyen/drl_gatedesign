@@ -613,7 +613,7 @@ def Z_shift(pulse,theta):
     shifted_pulse[:,1] = complex_pulse.imag
     return shifted_pulse
 
-def plot_pulse(pulse,channel_labels,axs=None,xlim=None):
+def plot_pulse(pulse,channel_labels,axs=None,xlim=None,ylim='standard'):
     '''
     For discretized pulse, input pulse = np.array(actions)[seq]
     '''
@@ -622,7 +622,7 @@ def plot_pulse(pulse,channel_labels,axs=None,xlim=None):
     
     num_channel = len(channel_labels)
     if axs is None:
-        fig, axs = plt.subplots(num_channel,1,sharex=True,figsize=(10,1.5*num_channel))
+        fig, axs = plt.subplots(num_channel,1,sharex=True,figsize=(10,1*num_channel))
     if num_channel == 1: axs = [axs]
     for i in range(num_channel):
         axs[i].fill_between(steps,pulse[:,2*i]  ,color='C3',step='post',alpha=0.4)
@@ -630,7 +630,14 @@ def plot_pulse(pulse,channel_labels,axs=None,xlim=None):
         axs[i].step(steps,pulse[:,2*i]  ,'C3',where='post',label='Re')
         axs[i].step(steps,pulse[:,2*i+1],'C0',where='post',label='Im')
         axs[i].set_ylabel(channel_labels[i])
-        axs[i].set_ylim([-1.1,1.1])
+        if ylim=='standard':
+            axs[i].set_ylim([-1.1,1.1])
+        elif ylim=='adjusted':
+            ymin = min(pulse[:,2*i].min(),pulse[:,2*i+1].min())
+            ymax = max(pulse[:,2*i].max(),pulse[:,2*i+1].max())
+            axs[i].set_ylim([ymin*1.3,ymax*1.3])  
+        else:
+            raise NotImplementedError
         if xlim is None:
             axs[i].hlines(0,-int(0.1*len(pulse)),len(pulse)+int(0.1*len(pulse)),'grey',alpha=0.4)
             axs[i].set_xlim([-int(0.1*len(pulse)),len(pulse)+int(0.1*len(pulse))])

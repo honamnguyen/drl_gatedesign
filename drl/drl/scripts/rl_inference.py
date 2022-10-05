@@ -26,8 +26,8 @@ if __name__ == '__main__':
     config = pickle.load(open(config_file, "rb"))
     config['num_workers'] = 0
     config['logger_config'] = {'type': 'ray.tune.logger.NoopLogger'}
-    for key in config:
-        print(key,config[key])
+    # for key in config:
+    #     print(key,config[key])
     agent = DDPG(config=config)
     
     # INFERENCE   
@@ -36,6 +36,8 @@ if __name__ == '__main__':
     config['env_config']['step_params']['reward_type'] =  'worst'
     env = transmon_env_creator(config['env_config'])
 
+    ind = np.array(config['env_config']['channels'][::2])//2
+    channels = np.array(['d0','u01','d1','u10'])[ind]
     for checkpoint in glob.glob(f'{run}/checkpoint*'):
         if args.chpt not in checkpoint:
             continue
@@ -43,7 +45,7 @@ if __name__ == '__main__':
         done = False
         obs = env.reset()
         data = {
-            'channels': ['u01','d1'],
+            'channels': channels,
             'pulse': [],
             'avg_fids': [env.avg_fid],
             'worst_fids': [env.fid],
