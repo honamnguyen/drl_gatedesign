@@ -49,6 +49,9 @@ if __name__ == '__main__':
             'pulse': [],
             'avg_fids': [env.avg_fid],
             'worst_fids': [env.fid],
+            'leakage_from_id': [],
+            'leakage_from_basis': [],
+            'leakage_from_fidelity': [],
         }
         while not done:
             action = agent.compute_single_action(obs)
