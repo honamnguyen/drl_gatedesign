@@ -12,6 +12,7 @@ class TransmonDuffingSimulator(object):
     def __init__(self, params):
         num_transmon = self.num_transmon = self.L= params['num_transmon']
         num_level = self.num_level = params['num_level']
+        self.dim = num_level**num_transmon
         if self.num_transmon == 1:
             self.num_channel = 2
         elif self.num_transmon == 2:
@@ -20,7 +21,7 @@ class TransmonDuffingSimulator(object):
             raise NotImplementedError(f'Drive hamiltonian not implemented for {self.num_transmon} transmons! What are the channels?')
 
         self.dt = params['dt']
-        self.qubit_indices,_ = qubit_subspace(self.num_level,self.num_transmon)
+        # self.qubit_indices,_ = qubit_subspace(self.num_level,self.num_transmon)
         
         # Set up raising, lowering, and occupancy operators
         b = np.diag(np.sqrt(np.arange(1, num_level)), 1)

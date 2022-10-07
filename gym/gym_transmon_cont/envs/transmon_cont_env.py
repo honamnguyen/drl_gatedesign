@@ -18,7 +18,7 @@ class ContinuousTransmonEnv(gym.Env):
         # self.sim_name = kw['sim_name']
         self.sim_params = kw['qsim_params']
         self.step_params = kw['step_params']
-        self.qubit_indices = kw['qubit_indices']
+        self.qubit_indices, self.qubit_proj = qubit_subspace(kw['qsim_params']['num_level'],kw['qsim_params']['num_transmon'])
         self.channels = kw['channels']
         self.sub_action_scale = kw['sub_action_scale']
         self.end_amp_window = kw['end_amp_window']
@@ -62,6 +62,7 @@ class ContinuousTransmonEnv(gym.Env):
             
         self.state = expmap_super@self.state
         self.map_super = expmap_super@self.map_super
+        self.leakage = compute_leakage(self)
         if 'ket' in self.rl_state:
             self.ket = expmap@self.ket
             self.map = expmap@self.map
@@ -129,7 +130,7 @@ class ContinuousTransmonEnv(gym.Env):
                                           self.qubit_indices,
                                           self.correction_angle)
         self.avg_fid = avg_fid = average_over_pure_states(M_qubit)
-
+        self.leakage = [0,0]
         if 'local-fidelity-difference' in self.step_params['reward_scheme']:
             if self.step_params['reward_type'] == 'worst':
                 _,worst_fid = worst_fidelity(self,method,overlap_args=(M_qubit,theta))

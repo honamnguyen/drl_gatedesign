@@ -49,9 +49,7 @@ if __name__ == '__main__':
             'pulse': [],
             'avg_fids': [env.avg_fid],
             'worst_fids': [env.fid],
-            'leakage_from_id': [],
-            'leakage_from_basis': [],
-            'leakage_from_fidelity': [],
+            'leakages': [env.leakage],
         }
         while not done:
             action = agent.compute_single_action(obs)
@@ -59,8 +57,10 @@ if __name__ == '__main__':
             data['pulse'].append(env.prev_action)
             data['avg_fids'].append(env.avg_fid)
             data['worst_fids'].append(env.fid)     
+            data['leakages'].append(env.leakage)     
         data['pulse'] = np.array(data['pulse'])
         data['avg_fids'] = np.array(data['avg_fids'])
         data['worst_fids'] = np.array(data['worst_fids'])
+        data['leakages'] = np.array(data['leakages'])
         pickle.dump(data, open(checkpoint.replace('checkpoint',f'RLPulse_{env.fid:.4f}')+'.pkl', 'wb') )
         # np.save(checkpoint.replace('checkpoint',f'pulse_nli{episode_reward:.3f}')+'.npy', np.array(actions))

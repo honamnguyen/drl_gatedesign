@@ -33,7 +33,7 @@ def parser_init(parser):
     parser.add_argument('-rewardscheme',default='fnli',help='Reward scheme. Default: fnli')
     parser.add_argument('-fidthreshold',type=float,default=0.999,help='Fidelity threshold to terminate pulse. Default: 0.999')
     parser.add_argument('-worstfidmethod',default='SLSQP-ket-7',help='Method to calculate worst fidelity. Default: SLSQP-ket-7')
-    parser.add_argument('-channels',default='2,3,4,5',help='Pulse channels that agent controls. Default: 2,3,4,5')
+    parser.add_argument('-channels',default='23',help='Pulse channels that agent controls. Default: 23-> 2,3,4,5')
     parser.add_argument('-subactionscale',type=float,default=0.05,help='Scale of relative change in pulse. -1 means no sub action. Default: 0.05.')
     parser.add_argument('-endampwindow',type=float,default=None,help='End amplitude window, reward=0 if outside. Default: None')
     parser.add_argument('-rlstate',default='ket',help='Quantum state representation as input for RL agent. Default: ket')
@@ -93,7 +93,7 @@ def transmon_kw(args):
     worstfid_method = args.worstfidmethod #has nothing to do with the state
 
     # action
-    channels = [int(x) for x in args.channels.split(',')]
+    channels = np.hstack([[2*(int(c)-1),2*(int(c)-1)+1] for c in args.channels])
     sub_action_scale = None if int(args.subactionscale)==-1 else args.subactionscale 
     end_amp_window = args.endampwindow
     evolve_method = 'exact'

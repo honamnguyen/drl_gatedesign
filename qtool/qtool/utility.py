@@ -562,6 +562,22 @@ def super2kraus(super_op,test=False):
         print('Correctly reconstructed super operator!')
     return kraus
 
+#---------------------------- Leakage ------------------------------#
+
+def compute_leakage(env):
+    '''
+    Compute leakage from and seepage to the computational basis
+    
+    Ref: Wood & Gambetta 2017, Quantification and Characterization of Leakage Errors 
+    '''
+    I1 = env.qubit_proj.flatten()
+    I2 = (np.eye(env.sim.dim) - env.qubit_proj).flatten()
+    L1 = env.map_super@(I1/I1.sum()) @ I2.conj()
+    L2 = 1 - env.map_super@(I2/I2.sum()) @ I2.conj()
+    assert (abs(L1.imag) + abs(L2.imag))<1e-10 
+    L1, L2 = L1.real, L2.real
+    return L1, L2
+
 ###########################################################################
 ################################## PULSE ##################################
 ###########################################################################

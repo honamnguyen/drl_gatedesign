@@ -33,7 +33,7 @@ def initialize_transmon_env(sim_name, num_transmon, num_level, sim_frame_rotatio
 
     # Track evolution of basis elements
     dm_basis = get_reduced_basis(num_level,num_transmon)
-    qubit_indices,_ = qubit_subspace(num_level,num_transmon)
+    qubit_indices,qubit_proj = qubit_subspace(num_level,num_transmon)
     basis_size = len(dm_basis)
 
     gate = common_gate(target_gate)
@@ -46,6 +46,7 @@ def initialize_transmon_env(sim_name, num_transmon, num_level, sim_frame_rotatio
     kw['init_state'] = (dm_basis).reshape([basis_size,-1]).T
     kw['target_unitary'] = target_unitary
     kw['qubit_indices'] = qubit_indices
+    # kw['qubit_proj'] = qubit_proj
     
     # Keep ket
     kw['init_ket'] = get_ket_basis(num_level,num_transmon).T if 'ket' in rl_state else None
