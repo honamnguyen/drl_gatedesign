@@ -83,7 +83,7 @@ if __name__ == "__main__":
     for i in tqdm(range(args.numiter)):
             result = trainer.train()
             # print(result)
-            if i*args.stepsperiter % int(5e5) == 0:
+            if i % args.evaluationinterval == 0:
                 trainer.save()
     # ray.shutdown()
 

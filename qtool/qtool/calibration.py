@@ -1,4 +1,6 @@
+import numpy as np
 from scipy.optimize import Bounds, minimize
+from qtool.utility import Z_shift
 
 def calibration_loss_1channel(x, pulse_shape, num_seg, channel, U_target, qubit_indices, sim):
     '''Calibrate pulse parameters and initial Z angles'''

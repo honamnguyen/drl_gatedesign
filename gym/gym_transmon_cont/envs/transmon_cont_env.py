@@ -18,7 +18,7 @@ class ContinuousTransmonEnv(gym.Env):
         # self.sim_name = kw['sim_name']
         self.sim_params = kw['qsim_params']
         self.step_params = kw['step_params']
-        self.qubit_indices, self.qubit_proj = qubit_subspace(kw['qsim_params']['num_level'],kw['qsim_params']['num_transmon'])
+        _,self.qubit_indices, self.qubit_proj = qubit_subspace(kw['qsim_params']['num_level'],kw['qsim_params']['num_transmon'])
         self.channels = kw['channels']
         self.sub_action_scale = kw['sub_action_scale']
         self.end_amp_window = kw['end_amp_window']

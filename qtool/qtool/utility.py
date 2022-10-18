@@ -20,12 +20,12 @@ def tensor(arr):
 
 def qubit_subspace(num_level,num_transmon):
     '''
-    Return qubit_indices and qubit_projector for multi-level transmon
+    Return qubit_indices_vec, qubit_indices_mat and qubit_projector for multi-level transmon
     '''
     all_indices = np.array(list(product(range(num_level),repeat=num_transmon))) 
     qubit_indices = np.where(all_indices.max(1)<=1)[0]
     qubit_proj = np.diag((all_indices.max(1)<=1).astype(int))
-    return np.ix_(qubit_indices,qubit_indices),qubit_proj
+    return qubit_indices, np.ix_(qubit_indices,qubit_indices),qubit_proj
 
 def kets2vecs_optimized(kets,basis):
     vecs = kets.conj()@basis@kets
@@ -228,6 +228,9 @@ def common_gate(name):
                                                 [  0, 1,   0, 1j],
                                                 [-1j, 0,   1,  0],
                                                 [  0, 1j,  0,  1]]),
+                 
+                 'ZXp90' : (np.eye(4)-1j*tensor([Z,X]))/np.sqrt(2),
+                 'ZXm90' : (np.eye(4)+1j*tensor([Z,X]))/np.sqrt(2),
                  
                  'ZX': np.array([[ 0, 1,  0,  0],
                                  [ 1, 0,  0,  0],

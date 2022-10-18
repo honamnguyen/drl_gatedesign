@@ -17,7 +17,7 @@ def parser_init(parser):
     
     # rllib
     parser.add_argument('-numworkers',type=int,default=0,help='Number of workers for data collection. Default: 0')    
-    parser.add_argument('-numiter',type=int,default=5000,help='Number of iteration. Default: 5000')    
+    parser.add_argument('-numiter',type=int,default=10000,help='Number of iteration. Default: 5000')    
     parser.add_argument('-stepsperiter',type=int,default=1000,help='Timesteps per iteration. Default: 1000')    
     
     # environment
@@ -26,7 +26,9 @@ def parser_init(parser):
     parser.add_argument('-numseg',type=int,default=20,help='Number of PWC segments. Default: 20')
     parser.add_argument('-duration',type=float,default=250,help='Pulse max duration in nanoseconds. Default: 250')
     parser.add_argument('-targetgate',default='sqrtZX',help='Target gate to be learned. Default: sqrtZX')
+    parser.add_argument('-anharmonicity',default='-319.7,-320.2',help='Anharmonicities on two transmons (MHz). Default: -319.7,-320.2')
     parser.add_argument('-drivestrength',default='30,300,30,300',help='Drive strengths on two transmons (MHz). Default: 30,300,30,300')
+    parser.add_argument('-detuning',default='115,0',help='Detuning frequencies (MHz). Default: 115,0')
     parser.add_argument('-coupling',type=float,default=1.87,help='Coupling strength between two transmons (MHz). Default: 1.87')
     parser.add_argument('-ctrlnoise',type=float,default=0,help='Noisy control variance in % or in Hz. Default: 0')
     parser.add_argument('-rewardtype',default='worst',help='Reward type: worst or average. Default: worst')
@@ -53,7 +55,7 @@ def parser_init(parser):
     parser.add_argument('-batchsize',type=int,default=64,help='Batch size. Default: 64')
     parser.add_argument('-replaysize',type=int,default=int(1e5),help='Replay buffer size. Default: 100000')
     parser.add_argument('-replayinitial',type=int,default=int(1e4),help='Number of transitions in replay buffer before training starts. Default: 10000')
-    parser.add_argument('-evaluationinterval',type=int,default=500,help='Number of train() step between evaluation. Default: 500')
+    parser.add_argument('-evaluationinterval',type=int,default=500,help='Number of train() steps between evaluation/save. Default: 500')
     parser.add_argument('-testcount',type=int,default=1,help='Number of tests to average over. Default: 1')
     parser.add_argument('-checkpoints',default=None,help='Checkpoints in terms of average of last 10 test rewards. Default: None')
     parser.add_argument('-initmodel',default=None,help='Initial model to train from. Default: None')
@@ -69,9 +71,10 @@ def transmon_kw(args):
     num_transmon = args.numtransmon
     num_level = args.numlevel
     sim_frame_rotation = False
-    anharm   = 2*np.pi * np.array([-319.7,-320.2])*MHz
+    # anharm   = 2*np.pi * np.array([-319.7,-320.2])*MHz
+    anharm   = 2*np.pi * np.array([float(x) for x in args.anharmonicity.split(',')])*MHz
     drive    = 2*np.pi * np.array([float(x) for x in args.drivestrength.split(',')])*MHz
-    detune   = 2*np.pi * np.array([115,0])*MHz
+    detune   = 2*np.pi * np.array([float(x) for x in args.detuning.split(',')])*MHz
     coupling = 2*np.pi * np.array([args.coupling])*MHz
 
     ctrl_noise = args.ctrlnoise

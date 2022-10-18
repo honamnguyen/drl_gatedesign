@@ -33,7 +33,7 @@ def initialize_transmon_env(sim_name, num_transmon, num_level, sim_frame_rotatio
 
     # Track evolution of basis elements
     dm_basis = get_reduced_basis(num_level,num_transmon)
-    qubit_indices,qubit_proj = qubit_subspace(num_level,num_transmon)
+    _,qubit_indices,qubit_proj = qubit_subspace(num_level,num_transmon)
     basis_size = len(dm_basis)
 
     gate = common_gate(target_gate)
