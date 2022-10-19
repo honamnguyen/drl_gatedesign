@@ -1,4 +1,4 @@
-import argparse
+import argparse, json
 from gym_utils import *
 
 def write_dict_to_file(name,d):
@@ -26,6 +26,12 @@ def parser_init(parser):
     parser.add_argument('-numseg',type=int,default=20,help='Number of PWC segments. Default: 20')
     parser.add_argument('-duration',type=float,default=250,help='Pulse max duration in nanoseconds. Default: 250')
     parser.add_argument('-targetgate',default='sqrtZX',help='Target gate to be learned. Default: sqrtZX')
+    
+    parser.add_argument('-IBMbackend',default=None,help='IBM backend to get hamitonian variables. Default: None')
+    parser.add_argument('-IBMqubits',default=None,help='Which IBM backend qubits to simulate. Default: None')
+    parser.add_argument('-IBMUDratio',type=float,default=10,help='Ratio between the max amplitude allowed between Control Channel (U) and Drive Channel(D). Default: 10')
+    
+    
     parser.add_argument('-anharmonicity',default='-319.7,-320.2',help='Anharmonicities on two transmons (MHz). Default: -319.7,-320.2')
     parser.add_argument('-drivestrength',default='30,300,30,300',help='Drive strengths on two transmons (MHz). Default: 30,300,30,300')
     parser.add_argument('-detuning',default='115,0',help='Detuning frequencies (MHz). Default: 115,0')
@@ -55,7 +61,7 @@ def parser_init(parser):
     parser.add_argument('-batchsize',type=int,default=64,help='Batch size. Default: 64')
     parser.add_argument('-replaysize',type=int,default=int(1e5),help='Replay buffer size. Default: 100000')
     parser.add_argument('-replayinitial',type=int,default=int(1e4),help='Number of transitions in replay buffer before training starts. Default: 10000')
-    parser.add_argument('-evaluationinterval',type=int,default=500,help='Number of train() steps between evaluation/save. Default: 500')
+    parser.add_argument('-evaluationinterval',type=int,default=200,help='Number of train() steps between evaluation/save. Default: 200')
     parser.add_argument('-testcount',type=int,default=1,help='Number of tests to average over. Default: 1')
     parser.add_argument('-checkpoints',default=None,help='Checkpoints in terms of average of last 10 test rewards. Default: None')
     parser.add_argument('-initmodel',default=None,help='Initial model to train from. Default: None')
@@ -71,11 +77,28 @@ def transmon_kw(args):
     num_transmon = args.numtransmon
     num_level = args.numlevel
     sim_frame_rotation = False
-    # anharm   = 2*np.pi * np.array([-319.7,-320.2])*MHz
-    anharm   = 2*np.pi * np.array([float(x) for x in args.anharmonicity.split(',')])*MHz
-    drive    = 2*np.pi * np.array([float(x) for x in args.drivestrength.split(',')])*MHz
-    detune   = 2*np.pi * np.array([float(x) for x in args.detuning.split(',')])*MHz
-    coupling = 2*np.pi * np.array([args.coupling])*MHz
+    
+    if args.IBMbackend:
+        with open(f'../../../data/hamiltonian_vars_{args.IBMbackend}.json', 'r') as f:
+            ham_vars = json.load(f)
+        sim_qubits = [int(x) for x in args.IBMqubits]
+        freq = np.array([ham_vars[f'wq{q}'] for q in sim_qubits])
+        detune = freq - freq[-1] # simulate in the frame of the last qubit
+        anharm = np.array([ham_vars[f'delta{q}'] for q in sim_qubits])
+        coupling_map = []
+        for q in ham_vars['coupling_map']:
+            if q[0] in sim_qubits and q[1] in sim_qubits and q[0]<q[1]:
+                coupling_map.append(tuple(q))
+        coupling = np.array([ham_vars[f'jq{a}q{b}'] for a,b in coupling_map])
+        drive = np.array([ham_vars[f'omegad{q}'] for q in sim_qubits])
+        if len(drive) > 1:
+            drive = np.repeat(drive,2)
+            drive[::2] = drive[::2]/args.IBMUDratio
+    else:
+        anharm   = 2*np.pi * np.array([float(x) for x in args.anharmonicity.split(',')])*MHz
+        drive    = 2*np.pi * np.array([float(x) for x in args.drivestrength.split(',')])*MHz
+        detune   = 2*np.pi * np.array([float(x) for x in args.detuning.split(',')])*MHz
+        coupling = 2*np.pi * np.array([args.coupling])*MHz
 
     ctrl_noise = args.ctrlnoise
 

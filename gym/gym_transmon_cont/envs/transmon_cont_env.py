@@ -38,6 +38,17 @@ class ContinuousTransmonEnv(gym.Env):
             self.ket = self.init_ket
             self.target_ket = self.target_unitary@self.init_ket
         self.observation_space = spaces.Box(-2,2,[len(self.reset())])
+        
+        # if kw['seed']:
+        #     seed = kw['seed']
+        #     num_workers = kw['num_workers']
+        #     worker_index = kw['worker_index']
+        #     vector_index = kw['vector_index']
+        #     total_seed = seed + num_workers + worker_index + vector_index
+        #     self.seed(total_seed)
+        #     print(f'-   Seed: {total_seed} = {seed} + {num_workers} + {worker_index} + {vector_index}')
+        # else:
+        #     print('-   Random seed')
             
     def evolve(self, input_action, evolve_method='exact'):
         if self.sub_action_scale is not None:

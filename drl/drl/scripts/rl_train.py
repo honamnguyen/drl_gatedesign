@@ -54,6 +54,7 @@ if __name__ == "__main__":
         evaluation_interval = args.evaluationinterval,
         evaluation_duration = args.testcount,
     )
+
     config = config.environment(
         env = 'transmon-cont-v7',
         env_config = transmon_kw(args),
@@ -64,6 +65,17 @@ if __name__ == "__main__":
     config = config.rollouts(
         num_rollout_workers = args.numworkers
     )
+    # config.env_config.update({
+    #     'num_workers': args.numworkers,
+    #     'worker_index': 0,
+    #     'vector_index': 0,
+    #     'seed': args.seed,
+    # })
+#     print('\-----Debugging-----')
+#     print(config.num_workers)
+#     print(config.worker_index)
+#     print(config.vector_index)
+    
     if args.seed:
         config = config.debugging(
             seed=args.seed
@@ -73,9 +85,12 @@ if __name__ == "__main__":
     save_path = '../../../data/'
     os.makedirs(save_path, exist_ok=True)
     run = f'{args.targetgate}_{args.study}_{str(np.random.randint(10000)).zfill(4)}_'
-    print(f'\n---> Run {run}\n')
+    print(f'\n---> Run {run}')
+    if args.IBMbackend:
+        print(f'-  Use configuration from IBM backend: {args.IBMbackend}\n')
 
-    write_dict_to_file(f'{save_path}{date.today()}_{run}config',vars(args))
+
+    # write_dict_to_file(f'{save_path}{date.today()}_{run}config',vars(args))
     trainer = config.build(
         logger_creator = rllib_log_creator(os.path.expanduser(save_path+'ray_results'), run)
     )
