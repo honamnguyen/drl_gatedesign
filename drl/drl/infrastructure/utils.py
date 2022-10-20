@@ -12,7 +12,8 @@ def parser_init(parser):
     ### ----- PARSING ARGUMENTS ----- ###
     parser.add_argument('-slurm',action=argparse.BooleanOptionalAction,help='Running on slurm. Default: None')
     parser.add_argument('-study',default='NoStudy',help='Study name for easy data analysis. Default: NoStudy.')
-    parser.add_argument('-checkpointpath',default='NoStudy',help='Fragments of checkpoint path. Default: NoStudy.')
+    parser.add_argument('-chptrun',default=None,help='Name fragments of run. Default: None.')
+    parser.add_argument('-chpt',default=None,help='Checkpoint. Default: None.')
 
     
     # rllib

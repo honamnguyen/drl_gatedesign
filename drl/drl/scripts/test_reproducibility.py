@@ -9,8 +9,8 @@ import ray
 from ray.rllib.algorithms.dqn import DQN 
 from ray.rllib.algorithms.ddpg import DDPG
 # from ray.rllib.algorithms.dqn import DQN as ALGO
-# from ray.rllib.algorithms.ddpg import DDPG as ALGO
-from ray.rllib.algorithms.td3 import TD3 as ALGO
+from ray.rllib.algorithms.ddpg import DDPG as ALGO
+# from ray.rllib.algorithms.td3 import TD3 as ALGO
 
 from ray.rllib.utils.test_utils import framework_iterator
 from ray.tune.registry import register_env

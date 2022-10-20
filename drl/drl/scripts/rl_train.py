@@ -1,5 +1,5 @@
 import numpy as np
-import argparse, os
+import argparse, os, glob
 from datetime import date
 from tqdm import tqdm
 
@@ -8,8 +8,16 @@ from drl.infrastructure.logger import rllib_log_creator
 
 import ray
 from ray.rllib.algorithms.ddpg.ddpg import DDPGConfig
+from ray.rllib.algorithms.ddpg import DDPG
 from ray.tune.registry import register_env
+from ray.rllib.utils.debug.deterministic import update_global_seed_if_necessary
 
+class Seeded_DDPG(DDPG):
+    def __init__(self, config, logger_creator):
+        super().__init__(config=config,logger_creator=logger_creator)
+        if config['seed'] is not None:
+            print(f"\n-  Set global seed to {config['seed']} in DDPG  -\n")
+            update_global_seed_if_necessary(config['framework'],config['seed'])
 
 def transmon_env_creator(kw):
     import gym
@@ -65,16 +73,6 @@ if __name__ == "__main__":
     config = config.rollouts(
         num_rollout_workers = args.numworkers
     )
-    # config.env_config.update({
-    #     'num_workers': args.numworkers,
-    #     'worker_index': 0,
-    #     'vector_index': 0,
-    #     'seed': args.seed,
-    # })
-#     print('\-----Debugging-----')
-#     print(config.num_workers)
-#     print(config.worker_index)
-#     print(config.vector_index)
     
     if args.seed:
         config = config.debugging(
@@ -87,18 +85,25 @@ if __name__ == "__main__":
     run = f'{args.targetgate}_{args.study}_{str(np.random.randint(10000)).zfill(4)}_'
     print(f'\n---> Run {run}')
     if args.IBMbackend:
-        print(f'-  Use configuration from IBM backend: {args.IBMbackend}\n')
+        print(f'-  Use configuration from IBM backend: {args.IBMbackend}')
+    print()
 
-
-    # write_dict_to_file(f'{save_path}{date.today()}_{run}config',vars(args))
-    trainer = config.build(
-        logger_creator = rllib_log_creator(os.path.expanduser(save_path+'ray_results'), run)
-    )
+    # convert to config dict to pass to ALGO
+    config = config.to_dict()
+    logger_creator = rllib_log_creator(os.path.expanduser(save_path+'ray_results'), run)
+    trainer = Seeded_DDPG(config=config, logger_creator=logger_creator)   
     
+    if args.chptrun:
+        checkpoint = glob.glob(f'{save_path}ray_results/*{args.chptrun}*/checkpoint*{args.chpt}')
+        assert len(checkpoint) == 1
+        trainer.restore(checkpoint[0])
+    
+    # save the initial point
+    trainer.save()
     for i in tqdm(range(args.numiter)):
             result = trainer.train()
             # print(result)
-            if i % args.evaluationinterval == 0:
+            if (i+1) % args.evaluationinterval == 0:
                 trainer.save()
     # ray.shutdown()
 
