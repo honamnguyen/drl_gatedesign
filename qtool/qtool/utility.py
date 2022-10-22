@@ -466,6 +466,10 @@ def NLI(fidelity):
     '''Negative logarithmic infidelity'''
     return -np.log10(1-fidelity)
 
+def fromNLI(nli):
+    '''From negative logarithmic infidelity to fidelity'''
+    return 1 - 10**(-nli)
+
 def average_over_pure_states(M):
     '''
     Calculate average fidelity for a known quantum operation

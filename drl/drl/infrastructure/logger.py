@@ -80,5 +80,15 @@ def rllib_log_creator(custom_path, custom_str):
         if not os.path.exists(custom_path):
             os.makedirs(custom_path)
         logdir = tempfile.mkdtemp(prefix=logdir_prefix, dir=custom_path)
+        print('\nlogdir',logdir)
+        return UnifiedLogger(config, logdir, loggers=None)
+    return logger_creator
+
+def rllib_log_creator_checkpoint(custom_path):
+    '''For custom log_dir in ray'''
+    def logger_creator(config):
+        if not os.path.exists(custom_path):
+            os.makedirs(custom_path)
+        logdir = custom_path
         return UnifiedLogger(config, logdir, loggers=None)
     return logger_creator

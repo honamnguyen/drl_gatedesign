@@ -4,8 +4,11 @@ conda activate julius64
 
 # python rl_train.py -numworkers 4 -study valencia_test -targetgate ZXp90 -drivestrength 20.47,204.74,15.85,158.54 -anharmonicity ' -310.54,-313.86' -detuning ' -86.66,0' -coupling 2.21
 
-# python rl_train.py -numworkers 0 -study IBMvalencia_q10_sub0.15_workers0_seed167 -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.15 -seed 167
+# python rl_train.py -numworkers 6 -study IBMvalencia_q10_seed167_sub0.15 -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.15 -seed 167
 
+# python rl_train.py -numworkers 4 -study IBMvalencia_q10_seed167_sub0.075 -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.075 -seed 167
+
+python rl_train.py -numworkers 6 -study valencia_sub0.1 -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -chpt
 
 # for numworkers in 0 4
 # do
@@ -25,7 +28,7 @@ conda activate julius64
 #     python rl_train.py -numworkers 4 -study Seed_workers4_hid800,400,200_seed167_afterinit -targetgate X90 -numtransmon 1 -numseg 5 -fidthreshold 0.9999 -worstfidmethod SCQP-dm-0 -channels 1 -duration 10 -IBMbackend valencia -IBMqubits 1 -subactionscale 0.4 -seed 167 -replayinitial 3000 -hidsizes 800,400,200 -numiter 6
 # done
 
-for s in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15
-do
-    python rl_train.py -numworkers 4 -study Seed_workers4_hid800,400,200_seed167_afterinit -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -replayinitial 3000 -numiter 8
-done
+# for s in 1 2 3 4 5 6 7 8 9 10
+# do
+#     python rl_train.py -numworkers 4 -study Seed_workers4_hid800,400,200_seed167_afterinit -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -replayinitial 3000 -numiter 8
+# done
