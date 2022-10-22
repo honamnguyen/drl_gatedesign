@@ -45,7 +45,7 @@ if __name__ == "__main__":
         
         # get run name
         logdir = config_file[0].replace('/params.pkl','')
-        logger_creator = rllib_log_creator_checkpoint(logdir+f'/from_chpt{str(istart+1).zfill(6)}_nochange') 
+        logger_creator = rllib_log_creator_checkpoint(logdir+f'/from_chpt{str(istart+1).zfill(6)}') 
         config = pickle.load(open(config_file[0], "rb"))
         # config['exploration_config']['random_timesteps'] = 0
         # config['exploration_config']['initial_scale'] = 0.1
