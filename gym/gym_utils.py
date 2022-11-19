@@ -11,7 +11,7 @@ def initialize_transmon_env_sqrtZX():
     coupling = 2*np.pi * np.array([args.coupling])*MHz
 
 def initialize_transmon_env(sim_name, num_transmon, num_level, sim_frame_rotation,
-                            drive, detune, anharm, coupling, ctrl_noise,
+                            ctrl, ctrl_noise,
                             num_seg, dt, target_gate,
                             rl_state, pca_order,
                             reward_type, reward_scheme, fid_threshold, worstfid_method,
@@ -21,10 +21,7 @@ def initialize_transmon_env(sim_name, num_transmon, num_level, sim_frame_rotatio
                          'num_level': num_level,
                          'sim_frame_rotation':sim_frame_rotation,
                          'dt':dt,
-                         'ctrl': {'drive': drive,
-                                  'detune': detune,
-                                  'anharm': anharm,
-                                  'coupling': coupling},
+                         'ctrl': ctrl,
                          'ctrl_noise': ctrl_noise,
                          }
     kw['sim_name'] = sim_name

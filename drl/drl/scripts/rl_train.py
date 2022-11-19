@@ -38,8 +38,8 @@ if __name__ == "__main__":
     if args.chpt:
         
         config_file = glob.glob(f'{ray_path}*{args.targetgate}_{args.study}_*/params.pkl')
-        print(config_file)
-        # assert len(config_file) == 1
+        # print(config_file)
+        assert len(config_file) == 1
         checkpoint = glob.glob(f'{ray_path}*{args.targetgate}_{args.study}*/checkpoint*')
         chpt_iteration = np.array([int(c.split('_')[-1]) for c in checkpoint])
         istart = chpt_iteration.max() - 1

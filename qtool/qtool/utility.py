@@ -231,6 +231,8 @@ def common_gate(name):
                  
                  'ZXp90' : (np.eye(4)-1j*tensor([Z,X]))/np.sqrt(2),
                  'ZXm90' : (np.eye(4)+1j*tensor([Z,X]))/np.sqrt(2),
+                 'XZp90' : (np.eye(4)-1j*tensor([X,Z]))/np.sqrt(2),
+                 'XZm90' : (np.eye(4)+1j*tensor([X,Z]))/np.sqrt(2),
                  
                  'ZX': np.array([[ 0, 1,  0,  0],
                                  [ 1, 0,  0,  0],
@@ -253,14 +255,12 @@ def common_gate(name):
                                    [0, 0, 1, 0],
                                    [0, 1, 0, 0],
                                    [0, 0, 0, 1]]), 
-                 'X': X, 
+                 'X': X,
+                 'XI': tensor([X,I]),
+                 'IX': tensor([I,X]),
                  
                  'X90': X90, 
-                 
-                 'IX': np.array([[0, 1, 0, 0],
-                                 [1, 0, 0, 0],
-                                 [0, 0, 0, 1],
-                                 [0, 0, 1, 0]]),
+                
                  
                  'IX90': tensor([I,X90]),
                  'X90I': tensor([X90,I]),
@@ -591,15 +591,32 @@ def compute_leakage(env):
 
 #---------------------------- Common pulses ------------------------------#
 
-def drag(x,amp,beta,sig):
-    gauss = amp*np.exp( -(x-x.max()/2)**2 / (2*sig**2) )
-    return np.array([gauss,beta*( -(x-x.max()/2) / (sig**2) )*gauss]).T
+try:
+    from qiskit.pulse import library as qiskitpulse
 
-def cr1(x_gauss,x_const,amp,sig,phase):
-    gauss = amp*np.exp( -(x_gauss-x_gauss.max()/2)**2 / (2*sig**2) )
-    const = gauss[len(x_gauss)//2]*x_const
-    pulse = np.hstack([gauss[:len(x_gauss)//2],const,gauss[len(x_gauss)//2:]])
-    return pulse[:,None]*np.array([np.cos(phase),np.sin(phase)])
+    def qiskit_drag_pulse(duration, amp, sigma, beta, phi):
+        return np.exp(-1j*phi)*qiskitpulse.Drag(duration, amp, sigma, beta).get_waveform().samples.reshape(-1,1)
+
+    def _base_cr_pulse(duration, amp, sigma, width, phi, XI_params=None):
+        if XI_params is not None:
+            pi_pulse = qiskit_drag_pulse(**XI_params)
+            cr_p = qiskitpulse.GaussianSquare(duration, amp, sigma, width).get_waveform().samples
+            pi_pulse = np.hstack([pi_pulse,np.zeros_like(pi_pulse)])
+            cr_p = np.vstack([np.zeros_like(cr_p),cr_p]).T
+            cr_m = -cr_p
+            return np.exp(-1j*phi)*np.vstack([cr_p,pi_pulse,cr_m,pi_pulse])
+        else:
+            return np.exp(-1j*phi)*qiskitpulse.GaussianSquare(duration, amp, sigma, width).get_waveform().samples.reshape(-1,1)
+
+    def qiskit_cr_pulse(duration, amp, sigma, width, phi, XI_params=None, 
+                        cancel_amp=None, cancel_phi=None):
+        cr_pulse = _base_cr_pulse(duration, amp, sigma, width, phi, XI_params)
+        if cancel_amp is not None:
+            cancel_pulse = _base_cr_pulse(duration, cancel_amp, sigma, width, cancel_phi, XI_params)[:,[1]]
+            cr_pulse = np.hstack([cr_pulse, cancel_pulse])
+        return cr_pulse
+except:
+    print('Qiskit not found. Some pulse shapes are not available.')
 
 def DRAG(num_seg, amp, sig, beta):
     '''
@@ -636,10 +653,13 @@ def Z_shift(pulse,theta):
     shifted_pulse[:,1] = complex_pulse.imag
     return shifted_pulse
 
-def plot_pulse(pulse,channel_labels,axs=None,xlim=None,ylim='standard'):
+def plot_pulse(pulse,channel_labels,axs=None,xlim=None,ylim='adjusted'):
     '''
-    For discretized pulse, input pulse = np.array(actions)[seq]
+    For discretized complex pulse
     '''
+    if pulse.dtype == np.float64: 
+        pulse *= (1+0j)
+    
     pulse = np.vstack([pulse,np.zeros_like(pulse[0])])
     steps = range(len(pulse))
     
@@ -648,16 +668,16 @@ def plot_pulse(pulse,channel_labels,axs=None,xlim=None,ylim='standard'):
         fig, axs = plt.subplots(num_channel,1,sharex=True,figsize=(10,1*num_channel))
     if num_channel == 1: axs = [axs]
     for i in range(num_channel):
-        axs[i].fill_between(steps,pulse[:,2*i]  ,color='C3',step='post',alpha=0.4)
-        axs[i].fill_between(steps,pulse[:,2*i+1],color='C0',step='post',alpha=0.4)
-        axs[i].step(steps,pulse[:,2*i]  ,'C3',where='post',label='Re')
-        axs[i].step(steps,pulse[:,2*i+1],'C0',where='post',label='Im')
+        axs[i].fill_between(steps,pulse[:,i].real  ,color='C3',step='post',alpha=0.4)
+        axs[i].fill_between(steps,pulse[:,i].imag,color='C0',step='post',alpha=0.4)
+        axs[i].step(steps,pulse[:,i].real  ,'C3',where='post',label='Re')
+        axs[i].step(steps,pulse[:,i].imag,'C0',where='post',label='Im')
         axs[i].set_ylabel(channel_labels[i])
         if ylim=='standard':
             axs[i].set_ylim([-1.1,1.1])
         elif ylim=='adjusted':
-            ymin = min(pulse[:,2*i].min(),pulse[:,2*i+1].min())
-            ymax = max(pulse[:,2*i].max(),pulse[:,2*i+1].max())
+            ymin = min(pulse[:,i].real.min(),pulse[:,i].imag.min())
+            ymax = max(pulse[:,i].real.max(),pulse[:,i].imag.max())
             axs[i].set_ylim([ymin*1.3,ymax*1.3])  
         else:
             raise NotImplementedError
@@ -670,3 +690,26 @@ def plot_pulse(pulse,channel_labels,axs=None,xlim=None,ylim='standard'):
         if i == 0: axs[i].legend(loc='upper right')
         if i == num_channel-1: axs[i].set_xlabel('Time step')
     plt.show()
+
+    
+###########################################################################
+################################# QISKIT ##################################
+###########################################################################
+
+#---------------------------- Bloch plot ------------------------------#
+
+def bloch_vecs(kets, q_idx):
+    '''
+    Args:
+        kets[:,dim]
+    '''
+    num_qubit = int(np.log2(kets.shape[1]))
+    vecs = []
+    for P in [X,Y,Z]:
+        op = [I]*num_qubit
+        op[q_idx] = P
+        op = tensor(op)
+        vecs.append(np.einsum('ij,jk,ik->i',kets.conj(),op,kets))
+    vecs = np.array(vecs)
+    assert abs(vecs.imag).max()<1e-9
+    return vecs.real

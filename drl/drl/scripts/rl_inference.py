@@ -18,6 +18,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-run',default='0000',help='Name fragments of run. Default: 0000.')
     parser.add_argument('-chpt',default='0000',help='Checkpoint. Default: 0000.')
+    parser.add_argument('-map',action=argparse.BooleanOptionalAction,help='Store unitary map or not. Default: None')
     args = parser.parse_args()
 
     ### ----- LOAD CONFIG + UPDATE----- ###
@@ -51,16 +52,19 @@ if __name__ == '__main__':
             'worst_fids': [env.fid],
             'leakages': [env.leakage],
         }
+        if args.map: data['map'] = [env.map]
         while not done:
             action = agent.compute_single_action(obs)
             obs, reward, done, _ = env.step(action)
             data['pulse'].append(env.prev_action)
             data['avg_fids'].append(env.avg_fid)
             data['worst_fids'].append(env.fid)     
-            data['leakages'].append(env.leakage)     
+            data['leakages'].append(env.leakage)   
+            if args.map: data['map'].append(env.map)     
         data['pulse'] = np.array(data['pulse'])
         data['avg_fids'] = np.array(data['avg_fids'])
         data['worst_fids'] = np.array(data['worst_fids'])
         data['leakages'] = np.array(data['leakages'])
+        if args.map: data['map'] = np.array(data['map'])
         pickle.dump(data, open(checkpoint.replace('checkpoint',f'RLPulse_{env.fid:.4f}')+'.pkl', 'wb') )
         # np.save(checkpoint.replace('checkpoint',f'pulse_nli{episode_reward:.3f}')+'.npy', np.array(actions))

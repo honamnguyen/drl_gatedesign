@@ -24,9 +24,9 @@ class ContinuousTransmonEnv(gym.Env):
         self.end_amp_window = kw['end_amp_window']
         self.tnow = 0
                 
-        self.action_space = spaces.Box(-1,1,[len(self.channels)])
+        self.action_space = spaces.Box(-1,1,[2*len(self.channels)])
         self.update_simulator(kw['sim_name'])           
-        
+                    
         # rotating target unitary to simulation frame
         S = self.sim.dressed_to_sim
         self.target_unitary = S@kw['target_unitary']@S.T.conj()
@@ -50,7 +50,7 @@ class ContinuousTransmonEnv(gym.Env):
         # else:
         #     print('-   Random seed')
             
-    def evolve(self, input_action, evolve_method='exact'):
+    def evolve(self, input_action, evolve_method): #='exact'):
         if self.sub_action_scale is not None:
             action = input_action*self.sub_action_scale + self.prev_action
             action[action>1] = 1
@@ -59,24 +59,25 @@ class ContinuousTransmonEnv(gym.Env):
             action = input_action
             
         assert abs(action).max()<=1
-        if evolve_method == 'exact':
-            if len(self.channels) == self.sim.num_channel:
-                expmap = self.sim.get_expmap(action,self.tnow)
-            else:
-                expanded_action = np.zeros(self.sim.num_channel)
-                expanded_action[self.channels] = action
-                expmap = self.sim.get_expmap(expanded_action,self.tnow)
-            expmap_super = tensor([expmap,expmap.conj()])
-
+        # if evolve_method == 'exact':
+        complex_action = action.view(np.complex128)
+        if len(self.channels) == self.sim.num_channel:
+            expmap = self.sim.get_expmap(complex_action,self.tnow,evolve_method)
         else:
-            raise NotImplementedError
+            expanded_action = np.zeros(self.sim.num_channel, dtype=np.complex128)
+            expanded_action[self.channels] = complex_action
+            expmap = self.sim.get_expmap(expanded_action,self.tnow,evolve_method)
+        expmap_super = tensor([expmap,expmap.conj()])
+
+        # else:
+        #     raise NotImplementedError
             
-        self.state = expmap_super@self.state
-        self.map_super = expmap_super@self.map_super
+        self.state = expmap_super@self.init_state #@self.state
+        self.map_super = expmap_super #@self.map_super
         self.leakage = compute_leakage(self)
         if 'ket' in self.rl_state:
-            self.ket = expmap@self.ket
-            self.map = expmap@self.map
+            self.ket = expmap@self.init_ket #@self.ket
+            self.map = expmap #@self.map
         self.tnow += 1
         return action
     
@@ -122,8 +123,10 @@ class ContinuousTransmonEnv(gym.Env):
         state = np.hstack([self.get_state(self.rl_state).flatten().view(np.float64),
                            self.prev_action])
         return state, reward, done, {}
+        # return state.view(np.float32), reward, done, {}
     
     def reset(self):
+        self.sim.reset()
         self.state = self.init_state
         if self.init_ket is not None:
             self.ket = self.init_ket
@@ -131,7 +134,7 @@ class ContinuousTransmonEnv(gym.Env):
         self.map = np.eye(N)
         self.map_super = np.eye(N**2)
         self.tnow = 0
-        self.prev_action = np.zeros(len(self.channels))
+        self.prev_action = np.zeros(2*len(self.channels))
         
         # get fidelity of the unevolved basis states
         _,_,_,_,reward_scheme,reward_type,method = self.step_params.values()
@@ -153,7 +156,7 @@ class ContinuousTransmonEnv(gym.Env):
             self.fid = None
         
         state = np.hstack([self.get_state(self.rl_state).flatten().view(np.float64),
-                           np.zeros(len(self.channels))])
+                           self.prev_action])
         return state
     
     def render(self, mode='human'):

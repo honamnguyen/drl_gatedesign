@@ -24,8 +24,8 @@ def parser_init(parser):
     # environment
     parser.add_argument('-numtransmon',type=int,default=2,help='Number of transmons. Default: 2')
     parser.add_argument('-numlevel',type=int,default=3,help='Number of level in Duffing oscillator. Default: 3')
-    parser.add_argument('-numseg',type=int,default=20,help='Number of PWC segments. Default: 20')
-    parser.add_argument('-duration',type=float,default=250,help='Pulse max duration in nanoseconds. Default: 250')
+    parser.add_argument('-numseg',type=int,default=20,help='Number of PWC segments (for IBM backend, need to be a divisor of duration). Default: 20')
+    parser.add_argument('-duration',type=float,default=250,help='Pulse max duration in nanoseconds (for IBM backend, needs to be multiple of 16*dt). Default: 250ns')
     parser.add_argument('-targetgate',default='sqrtZX',help='Target gate to be learned. Default: sqrtZX')
     
     parser.add_argument('-IBMbackend',default=None,help='IBM backend to get hamitonian variables. Default: None')
@@ -42,10 +42,11 @@ def parser_init(parser):
     parser.add_argument('-rewardscheme',default='fnli',help='Reward scheme. Default: fnli')
     parser.add_argument('-fidthreshold',type=float,default=0.999,help='Fidelity threshold to terminate pulse. Default: 0.999')
     parser.add_argument('-worstfidmethod',default='SLSQP-ket-7',help='Method to calculate worst fidelity. Default: SLSQP-ket-7')
-    parser.add_argument('-channels',default='23',help='Pulse channels that agent controls. Default: 23-> 2,3,4,5')
+    parser.add_argument('-channels',default='12',help='Pulse channels that agent controls. Default: 12-> u01,d1')
     parser.add_argument('-subactionscale',type=float,default=0.05,help='Scale of relative change in pulse. -1 means no sub action. Default: 0.05.')
     parser.add_argument('-endampwindow',type=float,default=None,help='End amplitude window, reward=0 if outside. Default: None')
     parser.add_argument('-rlstate',default='ket',help='Quantum state representation as input for RL agent. Default: ket')
+    parser.add_argument('-evolvemethod',default='TDSE',help='Time-dependent or independent evolution. Default: TDSE')
     
     # networks
     parser.add_argument('-hidsizes',default='800,400,200',help='Hidden layer sizes. Default: 800,400,200')
@@ -78,6 +79,12 @@ def parser_init(parser):
 
 def transmon_kw(args):
     
+    # objective
+    num_seg = args.numseg
+    duration = args.duration
+    target_gate = args.targetgate
+
+    
     rsdict = {'f':'only-final-step-','l':'local-fidelity-difference-'}    
     # physical setting
     num_transmon = args.numtransmon
@@ -100,19 +107,30 @@ def transmon_kw(args):
         if len(drive) > 1:
             drive = np.repeat(drive,2)
             drive[::2] = drive[::2]/args.IBMUDratio
+            
+        assert int(duration)%num_seg == 0
+        dt = duration/num_seg*ham_vars['dt']
+        
     else:
         anharm   = 2*np.pi * np.array([float(x) for x in args.anharmonicity.split(',')])*MHz
         drive    = 2*np.pi * np.array([float(x) for x in args.drivestrength.split(',')])*MHz
         detune   = 2*np.pi * np.array([float(x) for x in args.detuning.split(',')])*MHz
         coupling = 2*np.pi * np.array([args.coupling])*MHz
+        freq = None
+        
+        dt = duration/num_seg*nanosec
 
+        
+
+    ctrl = {
+        'drive': drive,
+        'detune': detune,
+        'anharm': anharm,
+        'coupling': coupling,
+        'freq': freq,
+    }
     ctrl_noise = args.ctrlnoise
 
-    # objective
-    num_seg = args.numseg
-    duration = args.duration
-    dt = duration/num_seg*nanosec
-    target_gate = args.targetgate
 
     # state
     rl_state = args.rlstate
@@ -125,13 +143,13 @@ def transmon_kw(args):
     worstfid_method = args.worstfidmethod #has nothing to do with the state
 
     # action
-    channels = np.hstack([[2*(int(c)-1),2*(int(c)-1)+1] for c in args.channels])
+    channels = [int(c) for c in args.channels]
     sub_action_scale = None if int(args.subactionscale)==-1 else args.subactionscale 
     end_amp_window = args.endampwindow
-    evolve_method = 'exact'
+    evolve_method = args.evolvemethod
 
-    kw = initialize_transmon_env('TransmonDuffingSimulator', num_transmon, num_level, sim_frame_rotation,
-                                 drive, detune, anharm, coupling, ctrl_noise,
+    kw = initialize_transmon_env('TransmonDuffingSimulator', num_transmon, num_level, 
+                                 sim_frame_rotation, ctrl, ctrl_noise,
                                  num_seg, dt, target_gate,
                                  rl_state, pca_order,
                                  reward_type, reward_scheme, fid_threshold, worstfid_method,
