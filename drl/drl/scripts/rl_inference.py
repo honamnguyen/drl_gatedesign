@@ -37,7 +37,8 @@ if __name__ == '__main__':
     config['env_config']['step_params']['reward_type'] =  'worst'
     env = transmon_env_creator(config['env_config'])
 
-    ind = np.array(config['env_config']['channels'][::2])//2
+    # ind = np.array(config['env_config']['channels'][::2])//2
+    ind = np.array(config['env_config']['channels'])
     channels = np.array(['d0','u01','d1','u10'])[ind]
     for checkpoint in glob.glob(f'{run}/checkpoint*'):
         if args.chpt not in checkpoint:
@@ -56,7 +57,7 @@ if __name__ == '__main__':
         while not done:
             action = agent.compute_single_action(obs)
             obs, reward, done, _ = env.step(action)
-            data['pulse'].append(env.prev_action)
+            data['pulse'].append(env.prev_action.view(np.complex128))
             data['avg_fids'].append(env.avg_fid)
             data['worst_fids'].append(env.fid)     
             data['leakages'].append(env.leakage)   

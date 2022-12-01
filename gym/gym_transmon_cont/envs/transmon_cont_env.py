@@ -108,12 +108,23 @@ class ContinuousTransmonEnv(gym.Env):
             
             
         elif 'only-final-step' in reward_scheme:
-            self.fid = fid = worst_fidelity(self,method,overlap_args=(M_qubit,theta))[1] if (avg_fid > fid_threshold or self.tnow>=num_seg) else avg_fid
+#             print(avg_fid > fid_threshold or self.tnow>=num_seg,avg_fid,self.tnow)
+            # if avg_fid crosses threshold, check if worst_fid also crosses threshold
+            if reward_type == 'worst':
+                if avg_fid > fid_threshold or self.tnow>=num_seg:
+                    _,worst_fid = worst_fidelity(self,method,overlap_args=(M_qubit,theta))
+                    fid = worst_fid
+                else:
+                    fid = avg_fid
+            elif reward_type == 'average':
+                fid = avg_fid                
+#             self.fid = fid = worst_fidelity(self,method,overlap_args=(M_qubit,theta))[1] if (avg_fid > fid_threshold or self.tnow>=num_seg) else avg_fid
             done = True if (fid > fid_threshold or self.tnow>=num_seg) else False
             if 'nli' in reward_scheme:
                 reward = NLI(fid) if done else -1/num_seg*neg_reward_scale
             else:
                 reward = fid if done else -1/num_seg*neg_reward_scale
+            self.fid = fid if done else None
         
         # enforce small amplitude at the end
         if self.end_amp_window:
