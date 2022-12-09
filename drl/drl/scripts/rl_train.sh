@@ -22,12 +22,18 @@ conda activate julius
 
 # python rl_train.py -numworkers 4 -study IBMvalencia_q10_seed167_workers4_chan012_dur1120dt_seg20_sub0.1_avg -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channel 012 -evolvemethod TDSE -rewardtype average
 
-python rl_train.py -numworkers 4 -study workers4_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channel 12 -evolvemethod TISE -rewardtype average
+# python rl_train.py -numworkers 4 -study workers4_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channel 12 -evolvemethod TISE -rewardtype average
 
-# python rl_train.py -numworkers 6 -study IBMvalencia_q10_seed167_workers6_chan2_dur128dt_seg8_sub0.4 -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 
+# python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channel 12 -evolvemethod TISE -rewardtype average
 
-# python rl_train.py -numworkers 4 -study IBMvalencia_q10_seed167_workers4_chan023_dur1120dt_seg20_sub0.1 -targetgate NOTC -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channel 023 -evolvemethod TDSE
+### experiments ###
+# python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan012_dur1120dt_seg20_sub0.1_avg -targetgate NOTC -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channel 012 -rewardtype average ## try NOTC, didn't work bleh
 
+# python rl_train.py -numworkers 4 -study workers4_IBMvalencia_q10_seed167_chan12_TISE_dur800dt_seg20_sub0.2_avg -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.2 -seed 167 -duration 800 -numseg 20 -channel 12 -evolvemethod TISE -rewardtype average ## 177ns which requires avg_amp=0.6, it works
+
+# python rl_train.py -numworkers 4 -study workers4_IBMvalencia_q10_seed167_chan12_TISE_dur800dt_seg40_sub0.1_avg -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 800 -numseg 40 -channel 12 -evolvemethod TISE -rewardtype average ## 177ns but 40seg so 0.1sub
+
+python rl_train.py -numworkers 4 -study workers4_IBMvalencia_q10_seed167_chan12_TISE_dur800dt_seg40_sub0.1_delay1_avg -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 800 -numseg 40 -channel 12 -evolvemethod TISE -rewardtype average -td3policydelay 1 ## 177ns but 40seg so 0.1sub
 
 # python rl_train.py -numworkers 4 -study IBMvalencia_q10_seed167_workers4_chan012_dur1120dt_seg20_sub0.1_batch150_delay1 -targetgate NOTCCNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channel 012 -batchsize 150 -td3policydelay 1 -evolvemethod TDSE 
 

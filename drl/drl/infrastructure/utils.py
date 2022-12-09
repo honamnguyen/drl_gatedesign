@@ -67,7 +67,9 @@ def parser_init(parser):
     parser.add_argument('-testcount',type=int,default=1,help='Number of tests to average over. Default: 1')
     parser.add_argument('-checkpoints',default=None,help='Checkpoints in terms of average of last 10 test rewards. Default: None')
     parser.add_argument('-initmodel',default=None,help='Initial model to train from. Default: None')
-    parser.add_argument('-td3policydelay',type=int,default=-1,help='TD3 modification, policydelay. Default: -1')
+    parser.add_argument('-td3twinq',type=int,default=False, action='store_true',help='TD3 modification, twin Q networks. Default: False')
+    parser.add_argument('-td3policydelay',type=int,default=1,help='TD3 modification, delay policy update. Default: 1')
+    parser.add_argument('-td3smoothtarget',type=int,default=False,action='store_true',help='TD3 modification, smooth target policy. Default: False')
     
     # ray tune
     # parser.add_argument('-tunecpu',type=int,default=1,help='Tune CPUs. Default: 1')

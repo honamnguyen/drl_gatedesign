@@ -608,12 +608,35 @@ try:
         else:
             return np.exp(-1j*phi)*qiskitpulse.GaussianSquare(duration, amp, sigma, width).get_waveform().samples.reshape(-1,1)
 
+    # def qiskit_cr_pulse(duration, amp, sigma, width, phi, XI_params=None, 
+    #                     cancel_amp=None, cancel_phi=None):
+    #     cr_pulse = _base_cr_pulse(duration, amp, sigma, width, phi, XI_params)
+    #     if cancel_amp is not None:
+    #         cancel_pulse = _base_cr_pulse(duration, cancel_amp, sigma, width, cancel_phi, XI_params)
+    #         if XI_params is not None: cancel_pulse = cancel_pulse[:,[1]]
+    #         cr_pulse = np.hstack([cr_pulse, cancel_pulse])
+    #     return cr_pulse
     def qiskit_cr_pulse(duration, amp, sigma, width, phi, XI_params=None, 
-                        cancel_amp=None, cancel_phi=None):
+                        cancel_amp=None, cancel_phi=None, 
+                        rotary_amp=None, rotary_phi=None):
         cr_pulse = _base_cr_pulse(duration, amp, sigma, width, phi, XI_params)
-        if cancel_amp is not None:
-            cancel_pulse = _base_cr_pulse(duration, cancel_amp, sigma, width, cancel_phi, XI_params)[:,[1]]
-            cr_pulse = np.hstack([cr_pulse, cancel_pulse])
+
+        # if echo
+        if XI_params is not None: 
+            if cancel_amp is not None:
+                cancel_pulse = _base_cr_pulse(duration, cancel_amp, sigma, width, cancel_phi, XI_params)[:,[1]]
+                cr_pulse = np.hstack([cr_pulse, cancel_pulse])
+        # if direct
+        else:
+            if (cancel_amp is not None) or (rotary_amp is not None):
+                target_pulse = np.zeros_like(cr_pulse)
+                if cancel_amp is not None:
+                    target_pulse += _base_cr_pulse(duration, cancel_amp, sigma, width, cancel_phi)
+                if rotary_amp is not None:
+                    risefall = duration-width
+                    rotary_pulse = _base_cr_pulse(duration//2, rotary_amp, sigma, width-duration//2, rotary_phi)
+                    target_pulse += np.vstack([rotary_pulse,-rotary_pulse])
+                cr_pulse = np.hstack([cr_pulse, target_pulse])
         return cr_pulse
 except:
     print('Qiskit not found. Some pulse shapes are not available.')
