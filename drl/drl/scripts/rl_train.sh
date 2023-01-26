@@ -52,7 +52,7 @@ conda activate julius64
 
 # python rl_train.py -numworkers 4 -study mac_4w_IBMvalencia_q10_ratio5_seed167_chan12_TISE_dur1120dt_seg40_sub0.05_twinq_delay2_avg -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -IBMUDratio 5 -subactionscale 0.05 -seed 167 -duration 1120 -numseg 40 -channel 12 -evolvemethod TISE -rewardtype average -td3policydelay 2 -td3twinq # Get CNOT to combine to get NOTC, try ratio 5 (i.e. max_diff for Hadamard is 0.01)
 
-python rl_train.py -numworkers 4 -study mac_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg_noise1e-3_ketctrl -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channel 12 -evolvemethod TISE -rewardtype average -ctrlnoise 1e-3 -rlstate ket_ctrl # Rerun CNOT with ket_ctrl and ctrl_noise
+python rl_train.py -numworkers 4 -study mac_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg_noise5e-3_ketctrl -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channels 12 -evolvemethod TISE -rewardtype average -ctrlnoise 5e-3 -rlstate ket_ctrl # Rerun CNOT with ket_ctrl and ctrl_noise
 
 
 # to run much later
