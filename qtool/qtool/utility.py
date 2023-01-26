@@ -712,7 +712,7 @@ def plot_pulse(pulse,channel_labels,axs=None,xlim=None,ylim='adjusted'):
             axs[i].set_xlim(xlim)
         if i == 0: axs[i].legend(loc='upper right')
         if i == num_channel-1: axs[i].set_xlabel('Time step')
-    plt.show()
+    # plt.show()
 
     
 ###########################################################################

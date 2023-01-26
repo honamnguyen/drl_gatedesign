@@ -26,19 +26,6 @@ class TransmonDuffingSimulator(object):
         self.dt = params['dt']
         # self.qubit_indices,_ = qubit_subspace(self.num_level,self.num_transmon)
         
-        # System control + control noise
-        self.ctrl = params['ctrl']
-        self.ctrl_noise = params['ctrl_noise']
-        self.current_ctrl = {}
-        
-        if self.ctrl_noise:  
-            if self.ctrl_noise > 1:
-                print(f'-   Noisy control with variance: {self.ctrl_noise/MHz} MHZ')
-            else:
-                print(f'-   Noisy control with variance: {self.ctrl_noise*100}%')
-        else:
-            print('-   Noiseless control')
-
         # Set up raising, lowering, and occupancy operators
         b = np.diag(np.sqrt(np.arange(1, num_level)), 1)
         n = np.diag(np.arange(num_level))
@@ -49,21 +36,37 @@ class TransmonDuffingSimulator(object):
             b_list[i], n_list[i] = b, n
             self.bs.append(tensor(b_list))
             self.ns.append(tensor(n_list))
-            
-        self.calculate_H_sys()
-            
+      
+        self.reset_ctrl(params)   
+        
         if params['sim_frame_rotation']:
             raise NotImplementedError('Check implementation in quspin simulator')
         else:
-            self.dressed_to_sim = np.eye(num_level**num_transmon)      
+            self.dressed_to_sim = np.eye(num_level**num_transmon)     
+            
+    def reset_ctrl(self, params):
+        # System control + control noise
+        self.ctrl = params['ctrl']
+        self.ctrl_noise = params['ctrl_noise']
+        self.ctrl_update_freq = params['ctrl_update_freq']
+        assert self.ctrl_update_freq in ['everystep','everyepisode']
+        self.current_ctrl = self.ctrl.copy()
+        
+        if self.ctrl_noise:  
+            if self.ctrl_noise > 1:
+                print(f'-   {self.ctrl_update_freq}: Noisy control with variance: {self.ctrl_noise/MHz} MHZ')
+            else:
+                print(f'-   {self.ctrl_update_freq}: Noisy control with variance: {self.ctrl_noise*100}%')
+        else:
+            print('-   Noiseless control')
+        self.calculate_H_sys(self.ctrl) # Save system hamiltonian for no noise case
     
-    def calculate_H_sys(self):
+    def calculate_H_sys(self, ctrl):
         b, n = self.bs, self.ns
-        coupling = self.ctrl['coupling']
-        anharm = self.ctrl['anharm']
-        detune = self.ctrl['detune']
-        print(f'calculate H_sys with detune = {detune}')
-
+        coupling = ctrl['coupling']
+        anharm = ctrl['anharm']
+        detune = ctrl['detune']
+        
         # Save system hamiltonian for no noise case
         self.H_sys = 0j
         for i in range(self.num_transmon-1):
@@ -71,46 +74,54 @@ class TransmonDuffingSimulator(object):
         for i in range(self.num_transmon):
             self.H_sys += detune[i]*n[i] + anharm[i]/2*( n[i] @ n[i] - n[i])
 
+    def ctrl_update(self):
+        '''
+        Update current control parameters with noise: current_ctrl, H_sys
+        '''
+        current_ctrl = {}
+        for param in self.ctrl.keys():
+            noise_var = self.ctrl_noise if self.ctrl_noise >= 1 else self.ctrl_noise*abs(self.ctrl[param])
+            current_ctrl[param] =  np.random.normal(self.ctrl[param],noise_var)
+
+        coupling = current_ctrl['coupling']
+        anharm = current_ctrl['anharm']
+        detune = current_ctrl['detune']
         
+        self.current_ctrl = current_ctrl
+        self.calculate_H_sys(current_ctrl)            
+            
     def get_expmap(self,pulse,t_step,method='TDSE') -> List[np.ndarray]:     
         '''Need to reset self.H (method=sum) or self.U (method=prod) at the beginning of pulse'''
         b, n = self.bs, self.ns
         num_transmon = self.num_transmon
-        # Perturb control params if specified
-        if self.ctrl_noise:
-            for param in self.ctrl.keys():
-                noise_var = self.ctrl_noise if self.ctrl_noise >= 1 else self.ctrl_noise*abs(self.ctrl[param])
-                self.current_ctrl =  np.random.normal(self.ctrl[param],noise_var)
+#         ####
+#         # Perturb control params if specified
+#         if self.ctrl_noise:
+#             for param in self.ctrl.keys():
+#                 noise_var = self.ctrl_noise if self.ctrl_noise >= 1 else self.ctrl_noise*abs(self.ctrl[param])
+#                 self.current_ctrl =  np.random.normal(self.ctrl[param],noise_var)
                 
-            coupling = self.current_ctrl['coupling']
-            anharm = self.current_ctrl['anharm']
-            detune = self.current_ctrl['detune']
+#             coupling = self.current_ctrl['coupling']
+#             anharm = self.current_ctrl['anharm']
+#             detune = self.current_ctrl['detune']
 
-            # System hamiltonian        
-            H_sys = 0j
-            for i in range(num_transmon-1):
-                H_sys += coupling[i]*( b[i].T @ b[i+1] + b[i] @ b[i+1].T )
-            for i in range(num_transmon):
-                H_sys += detune[i]*n[i] + anharm[i]/2*( n[i] @ n[i] - n[i])
-        else:
-            self.current_ctrl = self.ctrl.copy()
-            H_sys = self.H_sys.copy()
+#             # System hamiltonian        
+#             H_sys = 0j
+#             for i in range(num_transmon-1):
+#                 H_sys += coupling[i]*( b[i].T @ b[i+1] + b[i] @ b[i+1].T )
+#             for i in range(num_transmon):
+#                 H_sys += detune[i]*n[i] + anharm[i]/2*( n[i] @ n[i] - n[i])
+#         else:
+#             self.current_ctrl = self.ctrl.copy()
+#             H_sys = self.H_sys.copy()
+#         #####
         
-        detune = self.current_ctrl['detune']
-        drive = self.current_ctrl['drive']
-          
-#         ###### Uncomment to test ########
-#         # For readability
-#         coupling = self.current_ctrl['coupling']
-#         anharm = self.current_ctrl['anharm']
-
-#         # System hamiltonian        
-#         H_sys = 0j
-#         for i in range(num_transmon-1):
-#             H_sys += coupling[i]*( b[i].T @ b[i+1] + b[i] @ b[i+1].T )
-#         for i in range(num_transmon):
-#             H_sys += detune[i]*n[i] + anharm[i]/2*( n[i] @ n[i] - n[i])
-#         ###############################
+        # Update current_ctrl and H_sys if necessary
+        if self.ctrl_noise and self.ctrl_update_freq == 'everystep': self.ctrl_update()
+        current_ctrl, H_sys = self.current_ctrl.copy(), self.H_sys.copy()
+        
+        detune = current_ctrl['detune']
+        drive = current_ctrl['drive']
 
         # Control hamiltonian
         H_ctrl = 0j*np.zeros([num_transmon,*H_sys.shape])
@@ -118,11 +129,8 @@ class TransmonDuffingSimulator(object):
             if num_transmon == 1:
                 H_ctrl[i] += b[i]/2 * drive[i] * pulse[i]
             elif num_transmon == 2:
-                # if abs(pulse[2*i]).max()>1e-6: print(2*i)
-                # if abs(pulse[2*i+1]).max()>1e-6: print(2*i+1)
                 H_ctrl[i]       += b[i]/2 * drive[2*i]   * pulse[2*i] 
                 H_ctrl[(i+1)%2] += b[i]/2 * drive[2*i+1] * pulse[2*i+1]
-                # H_ctrl[(i+1)%2] += b[(i+1)%2]/2 * drive[2*i+1] * pulse[2*i+1]
             else:
                 raise NotImplementedError(f'Drive hamiltonian not implemented for {num_transmon} transmons! What are the channels?')
                     
@@ -166,7 +174,8 @@ class TransmonDuffingSimulator(object):
     
     def reset(self):
         self.TISE_U = np.eye(self.num_level**self.num_transmon)
-        self.TDSE_U = qt.qeye(self.num_level**self.num_transmon)        
+        self.TDSE_U = qt.qeye(self.num_level**self.num_transmon)   
+        if self.ctrl_noise and self.ctrl_update_freq == 'everyepisode': self.ctrl_update()
         
     def evolve(self, full_pulse, method):
         assert full_pulse.dtype == np.complex128

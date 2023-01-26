@@ -16,7 +16,7 @@ eval "$(conda shell.bash hook)"
 # python rl_train.py -numworkers 6 -study IBMvalencia_q10_seed167_workers6_chan2_dur128dt_seg8_sub0.4 -targetgate X90I -IBMbackend valencia -IBMqubits 10 -subactionscale 0.4 -seed 167 -duration 128 -numseg 8 -channel 0 -evolvemethod TDSE
  
 ######## ON LINUX ##########
-conda activate julius
+# conda activate julius
 
 # python rl_train.py -numworkers 4 -study IBMvalencia_q10_seed167_workers4_chan012_dur1120dt_seg20_sub0.1 -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channel 012 -evolvemethod TDSE
 
@@ -29,21 +29,30 @@ conda activate julius
 ### experiments ###
 # python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan012_dur1120dt_seg20_sub0.1_avg -targetgate NOTC -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channel 012 -rewardtype average ## try NOTC, didn't work bleh
 
-# python rl_train.py -numworkers 4 -study workers4_IBMvalencia_q10_seed167_chan12_TISE_dur800dt_seg20_sub0.2_avg -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.2 -seed 167 -duration 800 -numseg 20 -channel 12 -evolvemethod TISE -rewardtype average ## 177ns which requires avg_amp=0.6, it works
+# python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan12_TISE_dur800dt_seg20_sub0.2_avg -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.2 -seed 167 -duration 800 -numseg 20 -channel 12 -evolvemethod TISE -rewardtype average ## 177ns which requires avg_amp=0.6, it works
 
-# python rl_train.py -numworkers 4 -study workers4_IBMvalencia_q10_seed167_chan12_TISE_dur800dt_seg40_sub0.1_avg -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 800 -numseg 40 -channel 12 -evolvemethod TISE -rewardtype average ## 177ns but 40seg so 0.1sub
+# python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan12_TISE_dur800dt_seg40_sub0.1_avg -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 800 -numseg 40 -channel 12 -evolvemethod TISE -rewardtype average ## 177ns but 40seg so 0.1sub, blow up Q
 
-python rl_train.py -numworkers 4 -study workers4_IBMvalencia_q10_seed167_chan12_TISE_dur800dt_seg40_sub0.1_delay1_avg -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 800 -numseg 40 -channel 12 -evolvemethod TISE -rewardtype average -td3policydelay 1 ## 177ns but 40seg so 0.1sub
+# python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan12_TISE_dur800dt_seg40_sub0.1_delay1_avg -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 800 -numseg 40 -channel 12 -evolvemethod TISE -rewardtype average -td3policydelay 1 ## 177ns but 40seg so 0.1sub, td3 but not learnng quite well
+
+# python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan12_TISE_dur800dt_seg40_sub0.1_twinq_delay4_avg -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 800 -numseg 40 -channel 12 -evolvemethod TISE -rewardtype average -td3policydelay 4 -td3twinq ## 177ns but 40seg so 0.1sub, remove smoothing stuff, learning but got to 1.8
+
+# python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan12_TISE_dur800dt_seg40_sub0.2_twinq_delay1_avg -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.2 -seed 167 -duration 800 -numseg 40 -channel 12 -evolvemethod TISE -rewardtype average -td3policydelay 1 -td3twinq ## 177ns but 40seg so 0.2sub
 
 # python rl_train.py -numworkers 4 -study IBMvalencia_q10_seed167_workers4_chan012_dur1120dt_seg20_sub0.1_batch150_delay1 -targetgate NOTCCNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channel 012 -batchsize 150 -td3policydelay 1 -evolvemethod TDSE 
 
 ########### ON MAC ###########
-# conda activate julius64
+conda activate julius64
 
 # python rl_train.py -numworkers 8 -study workers8_IBMvalencia_q10_seed2_chan12_TISE_dur1120dt_seg20_sub0.1_batch150 -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 2 -duration 1120 -numseg 20 -channel 12 -batchsize 150 -evolvemethod TISE 
 
 # python rl_train.py -numworkers 4 -study workers4_IBMvalencia_q10_seed2_chan12_TISE_dur1120dt_seg20_sub0.1_batch150 -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 2 -duration 1120 -numseg 20 -channel 12 -batchsize 150 -evolvemethod TISE 
 
+# python rl_train.py -numworkers 4 -study mac_4w_IBMvalencia_q10_ratio2_seed167_chan12_TISE_dur1120dt_seg40_sub0.05_twinq_delay2_avg -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -IBMUDratio 2.5 -subactionscale 0.05 -seed 167 -duration 1120 -numseg 40 -channel 12 -evolvemethod TISE -rewardtype average -td3policydelay 2 -td3twinq # Get CNOT to combine to get NOTC, try ratio 2.5 (i.e. max_diff for Hadamard is 0.02)
+
+# python rl_train.py -numworkers 4 -study mac_4w_IBMvalencia_q10_ratio5_seed167_chan12_TISE_dur1120dt_seg40_sub0.05_twinq_delay2_avg -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -IBMUDratio 5 -subactionscale 0.05 -seed 167 -duration 1120 -numseg 40 -channel 12 -evolvemethod TISE -rewardtype average -td3policydelay 2 -td3twinq # Get CNOT to combine to get NOTC, try ratio 5 (i.e. max_diff for Hadamard is 0.01)
+
+python rl_train.py -numworkers 4 -study mac_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg_noise1e-3_ketctrl -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channel 12 -evolvemethod TISE -rewardtype average -ctrlnoise 1e-3 -rlstate ket_ctrl # Rerun CNOT with ket_ctrl and ctrl_noise
 
 
 # to run much later

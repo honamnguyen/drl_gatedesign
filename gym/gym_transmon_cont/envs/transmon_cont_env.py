@@ -37,7 +37,7 @@ class ContinuousTransmonEnv(gym.Env):
         if self.init_ket is not None:
             self.ket = self.init_ket
             self.target_ket = self.target_unitary@self.init_ket
-        self.observation_space = spaces.Box(-2,2,[len(self.reset())])
+        self.observation_space = spaces.Box(-1000,1000,[len(self.reset())])
         
         # if kw['seed']:
         #     seed = kw['seed']
@@ -166,20 +166,27 @@ class ContinuousTransmonEnv(gym.Env):
         else:
             self.fid = None
         
-        state = np.hstack([self.get_state(self.rl_state).flatten().view(np.float64),
-                           self.prev_action])
+        state = np.hstack([self.get_state(self.rl_state),self.prev_action])
         return state
     
     def render(self, mode='human'):
         return 0
     
     def get_state(self,rl_state='full_dm'):
-        if rl_state == 'full_dm':
-            return self.state
-        elif rl_state == 'pca_dm':
-            return pca(self.state,self.sim.num_level,self.sim.L,order=self.pca_order,test=False)
-        elif rl_state == 'ket':
-            return self.ket
+        if 'full_dm' in rl_state:
+            state = self.state
+        elif 'pca_dm' in rl_state:
+            state = pca(self.state,self.sim.num_level,self.sim.L,order=self.pca_order,test=False)
+        elif 'ket' in rl_state:
+            state = self.ket
+        state = state.flatten().view(np.float64)
+        
+        if 'ctrl' in rl_state:
+            ctrl = self.sim.current_ctrl
+            ctrl_state = np.hstack([ctrl['drive'],ctrl['detune'],ctrl['anharm'],ctrl['coupling']])/2/np.pi/1e6
+            state = np.hstack([ctrl_state,state])
+
+        return state
         
     def update_init_target_state(self,init_state,target_state):
         self.init_state = init_state
