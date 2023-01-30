@@ -347,88 +347,88 @@ def detune1_m(t, args):
 #############################################################################
 ############################## OLD QUSPIN SIM ###############################
 #############################################################################
-from quspin.operators import hamiltonian 
-from quspin.basis import boson_basis_1d
+# from quspin.operators import hamiltonian 
+# from quspin.basis import boson_basis_1d
 
-class quspin_duffing_simulator():
-    '''
-    Input: params
-        - ctrl: control parameters in MHz
-        - dt: time segment size in us 
-        - error:
-            + If within [0,1], treat as percentage of parameter's amplitude
-            + If larger than 1, treat as an absolute uncertainty in Hz
-    '''
-    def __init__(self, params):
-        L = self.L = params['num_transmon']
-        self.num_level = params['num_level']
-        if self.L == 1:
-            self.num_channel = 2
-        elif self.L == 2:
-            self.num_channel = 8
-        self.basis = boson_basis_1d(L=self.L, sps=self.num_level)
+# class quspin_duffing_simulator():
+#     '''
+#     Input: params
+#         - ctrl: control parameters in MHz
+#         - dt: time segment size in us 
+#         - error:
+#             + If within [0,1], treat as percentage of parameter's amplitude
+#             + If larger than 1, treat as an absolute uncertainty in Hz
+#     '''
+#     def __init__(self, params):
+#         L = self.L = params['num_transmon']
+#         self.num_level = params['num_level']
+#         if self.L == 1:
+#             self.num_channel = 2
+#         elif self.L == 2:
+#             self.num_channel = 8
+#         self.basis = boson_basis_1d(L=self.L, sps=self.num_level)
 
-        self.ctrl = params['ctrl']
-        self.ctrl_noise = params['ctrl_noise']
-        self.current_ctrl = {}
-        dt = self.dt = params['dt']
-        self.coupling_list = [[i,j] for i in range(self.L) for j in range(i+1,self.L)]
+#         self.ctrl = params['ctrl']
+#         self.ctrl_noise = params['ctrl_noise']
+#         self.current_ctrl = {}
+#         dt = self.dt = params['dt']
+#         self.coupling_list = [[i,j] for i in range(self.L) for j in range(i+1,self.L)]
         
-        # fixed error in Hz
-        if self.ctrl_noise:  
-            if self.ctrl_noise > 1:
-                print(f'-   Noisy control with variance: {self.ctrl_noise/MHz} MHZ')
-            else:
-                print(f'-   Noisy control with variance: {self.ctrl_noise*100}%')
-        else:
-            print('-   Noiseless control')
+#         # fixed error in Hz
+#         if self.ctrl_noise:  
+#             if self.ctrl_noise > 1:
+#                 print(f'-   Noisy control with variance: {self.ctrl_noise/MHz} MHZ')
+#             else:
+#                 print(f'-   Noisy control with variance: {self.ctrl_noise*100}%')
+#         else:
+#             print('-   Noiseless control')
 
             
-        detune_coeff   = [[2*PI*coeff*dt,i]       for i,coeff in zip(range(L),self.ctrl['detune'])]
-        anharm_coeff   = [[  PI*coeff*dt,i,i,i,i] for i,coeff in zip(range(L),self.ctrl['anharm'])]
-        coupling_coeff = [[2*PI*coeff*dt,*ij]     for ij,coeff in zip(self.coupling_list,self.ctrl['coupling'])]
+#         detune_coeff   = [[2*PI*coeff*dt,i]       for i,coeff in zip(range(L),self.ctrl['detune'])]
+#         anharm_coeff   = [[  PI*coeff*dt,i,i,i,i] for i,coeff in zip(range(L),self.ctrl['anharm'])]
+#         coupling_coeff = [[2*PI*coeff*dt,*ij]     for ij,coeff in zip(self.coupling_list,self.ctrl['coupling'])]
             
-        static = [['n',detune_coeff],
-                  ['++--',anharm_coeff],
-                  ['+-',coupling_coeff],
-                  ['-+',coupling_coeff]]
+#         static = [['n',detune_coeff],
+#                   ['++--',anharm_coeff],
+#                   ['+-',coupling_coeff],
+#                   ['-+',coupling_coeff]]
         
-        if params['sim_frame_rotation']:
-            ham_no_drive = np.flip(hamiltonian(static,[],dtype=np.complex128,basis=self.basis,
-                                    check_symm=False,check_herm=False).toarray())
-            self.dressed_to_sim = block_diag_transf_mat(ham_no_drive,self.num_level)
-        else:
-            self.dressed_to_sim = np.eye(self.num_level**self.L)
-        # _,self.dressed_to_sim = np.linalg.eigh(ham_no_drive.toarray())
+#         if params['sim_frame_rotation']:
+#             ham_no_drive = np.flip(hamiltonian(static,[],dtype=np.complex128,basis=self.basis,
+#                                     check_symm=False,check_herm=False).toarray())
+#             self.dressed_to_sim = block_diag_transf_mat(ham_no_drive,self.num_level)
+#         else:
+#             self.dressed_to_sim = np.eye(self.num_level**self.L)
+#         # _,self.dressed_to_sim = np.linalg.eigh(ham_no_drive.toarray())
 
-    def get_expmap(self, pulse, t_step):
-        expmap, expmap_super = [],[]
-        L, dt = self.L, self.dt
-        # Perturb control params if specified
-        if self.ctrl_noise:
-            for param in self.ctrl.keys():
-                noise_var = self.ctrl_noise/MHz if self.ctrl_noise >= 1 else self.ctrl_noise*abs(self.ctrl[param])
-                self.current_ctrl =  np.random.normal(self.ctrl[param],noise_var)
-        else:
-            self.current_ctrl = self.ctrl.copy()
+#     def get_expmap(self, pulse, t_step):
+#         expmap, expmap_super = [],[]
+#         L, dt = self.L, self.dt
+#         # Perturb control params if specified
+#         if self.ctrl_noise:
+#             for param in self.ctrl.keys():
+#                 noise_var = self.ctrl_noise/MHz if self.ctrl_noise >= 1 else self.ctrl_noise*abs(self.ctrl[param])
+#                 self.current_ctrl =  np.random.normal(self.ctrl[param],noise_var)
+#         else:
+#             self.current_ctrl = self.ctrl.copy()
             
-        self.detune_coeff   = [[2*PI*coeff*dt,i]       for i,coeff in zip(range(L),self.current_ctrl['detune'])]
-        self.anharm_coeff   = [[  PI*coeff*dt,i,i,i,i] for i,coeff in zip(range(L),self.current_ctrl['anharm'])]
-        self.coupling_coeff = [[2*PI*coeff*dt,*ij]     for ij,coeff in zip(self.coupling_list,self.current_ctrl['coupling'])]
+#         self.detune_coeff   = [[2*PI*coeff*dt,i]       for i,coeff in zip(range(L),self.current_ctrl['detune'])]
+#         self.anharm_coeff   = [[  PI*coeff*dt,i,i,i,i] for i,coeff in zip(range(L),self.current_ctrl['anharm'])]
+#         self.coupling_coeff = [[2*PI*coeff*dt,*ij]     for ij,coeff in zip(self.coupling_list,self.current_ctrl['coupling'])]
             
-        # for pulse in actions:
-        drive_coeff_p,drive_coeff_m = [],[]
-        for i in range(L):
-            # D(t)b + D(t).conj()b^dag
-            drive_coeff_p.append([(pulse[2*i]-1j*pulse[2*i+1]) * 2*PI*dt*self.current_ctrl['drive'][i],i])
-            drive_coeff_m.append([(pulse[2*i]+1j*pulse[2*i+1]) * 2*PI*dt*self.current_ctrl['drive'][i],i])
-        static = [['+',drive_coeff_p],
-                  ['-',drive_coeff_m],
-                  ['n',self.detune_coeff],
-                  ['++--',self.anharm_coeff],
-                  ['+-',self.coupling_coeff],
-                  ['-+',self.coupling_coeff]]
-        H = np.flip(hamiltonian(static,[],dtype=np.complex128,basis=self.basis,
-                                check_symm=False,check_herm=False).toarray()) 
-        expmap = expm(-1j*H)
-        return expmap      
+#         # for pulse in actions:
+#         drive_coeff_p,drive_coeff_m = [],[]
+#         for i in range(L):
+#             # D(t)b + D(t).conj()b^dag
+#             drive_coeff_p.append([(pulse[2*i]-1j*pulse[2*i+1]) * 2*PI*dt*self.current_ctrl['drive'][i],i])
+#             drive_coeff_m.append([(pulse[2*i]+1j*pulse[2*i+1]) * 2*PI*dt*self.current_ctrl['drive'][i],i])
+#         static = [['+',drive_coeff_p],
+#                   ['-',drive_coeff_m],
+#                   ['n',self.detune_coeff],
+#                   ['++--',self.anharm_coeff],
+#                   ['+-',self.coupling_coeff],
+#                   ['-+',self.coupling_coeff]]
+#         H = np.flip(hamiltonian(static,[],dtype=np.complex128,basis=self.basis,
+#                                 check_symm=False,check_herm=False).toarray()) 
+#         expmap = expm(-1j*H)
+#         return expmap      

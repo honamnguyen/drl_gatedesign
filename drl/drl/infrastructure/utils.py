@@ -10,14 +10,15 @@ def write_dict_to_file(name,d):
 def parser_init(parser):
 
     ### ----- PARSING ARGUMENTS ----- ###
-    parser.add_argument('-slurm',action=argparse.BooleanOptionalAction,help='Running on slurm. Default: None')
+    parser.add_argument('-slurm',action='store_true',help='Running on slurm. Default: None')
     parser.add_argument('-study',default='NoStudy',help='Study name for easy data analysis. Default: NoStudy.')
     # parser.add_argument('-chptrun',default=None,help='Name fragments of run. Default: None.')
     # parser.add_argument('-chpt',default=None,help='Checkpoint. Default: None.')
-    parser.add_argument('-chpt',action=argparse.BooleanOptionalAction,help='Restart run from latest checkpoint. Default: None')
+    parser.add_argument('-chpt',action='store_true',help='Restart run from latest checkpoint. Default: None')
     
     # rllib
     parser.add_argument('-numworkers',type=int,default=0,help='Number of workers for data collection. Default: 0')    
+    parser.add_argument('-numgpus',type=int,default=0,help='Number of GPUs. Default: 0')    
     parser.add_argument('-numiter',type=int,default=10000,help='Number of iteration. Default: 10000')    
     parser.add_argument('-stepsperiter',type=int,default=1000,help='Timesteps per iteration. Default: 1000')    
     

@@ -101,6 +101,9 @@ if __name__ == "__main__":
         config = config.rollouts(
             num_rollout_workers = args.numworkers
         )
+        config = config.resources(
+            num_gpus = args.numgpus
+        )
 
         if args.seed:
             config = config.debugging(
