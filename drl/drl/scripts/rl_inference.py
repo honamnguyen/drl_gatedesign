@@ -1,4 +1,4 @@
-import argparse, os, glob, pickle
+import argparse, os, glob, pickle, sys
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
 from drl.infrastructure.utils import *
@@ -19,6 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('-run',default='0000',help='Name fragments of run. Default: 0000.')
     parser.add_argument('-chpt',default='0000',help='Checkpoint. Default: 0000.')
     parser.add_argument('-map',action=argparse.BooleanOptionalAction,help='Store unitary map or not. Default: None')
+    parser.add_argument('-concat',action=argparse.BooleanOptionalAction,help='Add concat to rl_state for runs before dict obs space. Default: None')
     args = parser.parse_args()
 
     ### ----- LOAD CONFIG + UPDATE----- ###
@@ -27,16 +28,20 @@ if __name__ == '__main__':
     config = pickle.load(open(config_file, "rb"))
     config['num_workers'] = 0
     config['logger_config'] = {'type': 'ray.tune.logger.NoopLogger'}
-    # for key in config:
-    #     print(key,config[key])
-    agent = DDPG(config=config)
-    
-    # INFERENCE   
-    run = config_file.replace('/params.pkl','')
     config['env_config']['step_params']['reward_scheme'] = 'local-fidelity-difference-nli'
     config['env_config']['step_params']['reward_type'] =  'worst'
-    env = transmon_env_creator(config['env_config'])
+    config['env_config']['qsim_params']['ctrl_noise'] = 0
+    config['env_config']['qsim_params']['ctrl_update_freq'] = 'everyepisode'
+    if args.concat: 
+        config['env_config']['rl_state'] += '_concat'
+        print(f"\n  rl_state = {config['env_config']['rl_state']} \n")
+    run = config_file.replace('/params.pkl','')
 
+    agent = DDPG(config=config)
+    env = transmon_env_creator(config['env_config'])
+    # print(config['env_config']['qsim_params'])
+    # sys.exit()
+    
     # ind = np.array(config['env_config']['channels'][::2])//2
     ind = np.array(config['env_config']['channels'])
     channels = np.array(['d0','u01','d1','u10'])[ind]

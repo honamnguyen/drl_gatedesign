@@ -16,7 +16,7 @@ eval "$(conda shell.bash hook)"
 # python rl_train.py -numworkers 6 -study IBMvalencia_q10_seed167_workers6_chan2_dur128dt_seg8_sub0.4 -targetgate X90I -IBMbackend valencia -IBMqubits 10 -subactionscale 0.4 -seed 167 -duration 128 -numseg 8 -channel 0 -evolvemethod TDSE
  
 ######## ON LINUX ##########
-conda activate julius
+# conda activate julius
 
 # python rl_train.py -numworkers 4 -study IBMvalencia_q10_seed167_workers4_chan012_dur1120dt_seg20_sub0.1 -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channel 012 -evolvemethod TDSE
 
@@ -43,12 +43,14 @@ conda activate julius
 
 # python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg_noise5e-3_ketctrl -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channels 12 -evolvemethod TISE -rewardtype average -ctrlnoise 5e-3 -rlstate ket_ctrl # Rerun CNOT with ket_ctrl and ctrl_noise
 
-python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg_hid400,200,100 -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channels 12 -evolvemethod TISE -rewardtype average -hidsizes 400,200,100 # test with smaller networks
+# python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg_hid200,100,50 -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channels 12 -evolvemethod TISE -rewardtype average -hidsizes 200,100,50 -numiter 20000 # test with smaller networks
+
+# python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg_noise1e-2_ketctrl_hid800,800,800 -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channels 12 -evolvemethod TISE -rewardtype average -ctrlnoise 1e-2 -rlstate ket_ctrl -hidsizes 800,800,800 -numiter 20000 # Rerun CNOT with ket_ctrl and ctrl_noise, larger network
 
 
 
 ########### ON MAC ###########
-# conda activate julius64
+conda activate julius64
 
 # python rl_train.py -numworkers 8 -study workers8_IBMvalencia_q10_seed2_chan12_TISE_dur1120dt_seg20_sub0.1_batch150 -targetgate ZXp90 -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 2 -duration 1120 -numseg 20 -channel 12 -batchsize 150 -evolvemethod TISE 
 
@@ -58,7 +60,7 @@ python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan12_
 
 # python rl_train.py -numworkers 4 -study mac_4w_IBMvalencia_q10_ratio5_seed167_chan12_TISE_dur1120dt_seg40_sub0.05_twinq_delay2_avg -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -IBMUDratio 5 -subactionscale 0.05 -seed 167 -duration 1120 -numseg 40 -channel 12 -evolvemethod TISE -rewardtype average -td3policydelay 2 -td3twinq # Get CNOT to combine to get NOTC, try ratio 5 (i.e. max_diff for Hadamard is 0.01)
 
-# python rl_train.py -numworkers 4 -study mac_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg_noise5e-2_ketctrl -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channels 12 -evolvemethod TISE -rewardtype average -ctrlnoise 5e-2 -rlstate ket_ctrl # Rerun CNOT with ket_ctrl and ctrl_noise
+python rl_train.py -numworkers 4 -study mac_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg_noise1e-2_ketdrive -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channels 12 -evolvemethod TISE -rewardtype average -ctrlnoise 1e-2 -rlstate ket_drive # Rerun CNOT with ket_ctrl and ctrl_noise
 
 
 # to run much later

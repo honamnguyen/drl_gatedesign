@@ -37,31 +37,41 @@ class ContinuousTransmonEnv(gym.Env):
         if self.init_ket is not None:
             self.ket = self.init_ket
             self.target_ket = self.target_unitary@self.init_ket
-        # self.observation_space = spaces.Box(-2,2,[len(self.reset())])
-        state = self.reset()
-        obs_space_dict = {
-            'quantum_state': spaces.Box(-1,1,[len(state['quantum_state'])]),
-            'prev_action': spaces.Box(-1,1,[len(state['prev_action'])]),
-        }
-        if 'ctrl' in self.rl_state:
-            obs_space_dict['drive'] = spaces.Box(-1,1,[len(state['drive'])])
-            obs_space_dict['detune'] = spaces.Box(-1,1,[len(state['detune'])])
-            obs_space_dict['anharm'] = spaces.Box(-1,1,[len(state['anharm'])])
-            obs_space_dict['coupling'] = spaces.Box(-1,1,[len(state['coupling'])])
-        self.observation_space = spaces.Dict(obs_space_dict)
-        print('\nObservation space:',self.observation_space)
-
         
-        # if kw['seed']:
-        #     seed = kw['seed']
-        #     num_workers = kw['num_workers']
-        #     worker_index = kw['worker_index']
-        #     vector_index = kw['vector_index']
-        #     total_seed = seed + num_workers + worker_index + vector_index
-        #     self.seed(total_seed)
-        #     print(f'-   Seed: {total_seed} = {seed} + {num_workers} + {worker_index} + {vector_index}')
-        # else:
-        #     print('-   Random seed')
+        # additional information for rl_state
+        self.rl_state_len = len(self.rl_state.split('_'))
+        if self.rl_state_len == 3:
+            # eg: ket_anharm_0
+            _, self.param, self.index = self.rl_state.split('_')
+        elif self.rl_state_len == 2 and 'ctrl' not in self.rl_state:
+            # eg: ket_anharm
+            _, self.param = self.rl_state.split('_')
+            
+        # 'concat' observation space for old runs before changing to dict
+        if 'concat' in self.rl_state:
+            self.observation_space = spaces.Box(-2,2,[len(self.reset())])
+        else:
+            state = self.reset()
+            obs_space_dict = {
+                'quantum_state': spaces.Box(-1,1,[len(state['quantum_state'])]),
+                'prev_action': spaces.Box(-1,1,[len(state['prev_action'])]),
+            }
+            if 'ctrl' in self.rl_state:
+                obs_space_dict['drive'] = spaces.Box(-1,1,[len(state['drive'])])
+                obs_space_dict['detune'] = spaces.Box(-1,1,[len(state['detune'])])
+                obs_space_dict['anharm'] = spaces.Box(-1,1,[len(state['anharm'])])
+                obs_space_dict['coupling'] = spaces.Box(-1,1,[len(state['coupling'])])
+                
+            elif self.rl_state_len == 3:
+                _, self.param, self.index = self.rl_state.split('_')
+                obs_space_dict[self.param+self.index] = spaces.Box(-1,1,[1])
+                
+            elif self.rl_state_len == 2:
+                _, self.param = self.rl_state.split('_')
+                obs_space_dict[self.param] = spaces.Box(-1,1,[len(state[self.param])])
+
+            self.observation_space = spaces.Dict(obs_space_dict)
+        print(f'\n{self.observation_space}\n')
             
     def evolve(self, input_action, evolve_method): #='exact'):
         if self.sub_action_scale is not None:
@@ -144,12 +154,13 @@ class ContinuousTransmonEnv(gym.Env):
             if done and abs(self.prev_action).max()>self.end_amp_window:
                 reward = 0
             
-        # state = np.hstack([self.get_state(self.rl_state).flatten().view(np.float64),
-        #                    self.prev_action])
-        state = self.get_state_dict()
+        # Dict observation space 
+        if 'concat' in self.rl_state:
+            state = np.hstack([self.get_state(self.rl_state).flatten().view(np.float64),self.prev_action])
+        else:
+            state = self.get_state_dict()
 
         return state, reward, done, {}
-        # return state.view(np.float32), reward, done, {}
     
     def reset(self):
         self.sim.reset()
@@ -181,22 +192,24 @@ class ContinuousTransmonEnv(gym.Env):
         else:
             self.fid = None
         
-        # state = np.hstack([self.get_state(self.rl_state),self.prev_action])
-        # Dict observation space
-        state = self.get_state_dict()
-        # state = {
-        #     'quantum_state': self.get_quantum_state(self.rl_state),
-        #     'prev_action': self.prev_action,
-        # }
-        # if 'ctrl' in self.rl_state:
-        #     for key,val in self.sim.current_ctrl.items():
-        #         if key == 'freq':
-        #             continue
-        #         state[key] = val/2/np.pi/1e6
+        # Dict observation space 
+        if 'concat' in self.rl_state:
+            state = np.hstack([self.get_state(self.rl_state),self.prev_action])
+        else:
+            state = self.get_state_dict()
+    
         return state
     
     def render(self, mode='human'):
         return 0
+    
+    def _add_ctrl_to_state(self, param, state):
+        if param == 'detune':
+            nonzero_ind = abs(self.sim.ctrl[param])>1e-10
+            state[param] = self.sim.current_ctrl[param][nonzero_ind]/self.sim.ctrl[param][nonzero_ind] - 1
+        else:
+            state[param] = self.sim.current_ctrl[param]/self.sim.ctrl[param] - 1  
+        return state
     
     def get_state_dict(self):
         state = {
@@ -204,14 +217,23 @@ class ContinuousTransmonEnv(gym.Env):
             'prev_action': self.prev_action,
         }
         if 'ctrl' in self.rl_state:
-            for key,val in self.sim.current_ctrl.items():
-                if key == 'freq':
-                    continue
-                elif key == 'detune':
-                    nonzero_ind = abs(self.sim.ctrl[key])>1e-10
-                    state[key] = val[nonzero_ind]/self.sim.ctrl[key][nonzero_ind] - 1
-                else:
-                    state[key] = val/self.sim.ctrl[key] - 1
+            for param in ['drive','detune','anharm','coupling']:
+                state = self._add_ctrl_to_state(param, state)
+            # for key,val in self.sim.current_ctrl.items():
+            #     if key == 'freq':
+            #         continue
+            #     elif key == 'detune':
+            #         nonzero_ind = abs(self.sim.ctrl[key])>1e-10
+            #         state[key] = val[nonzero_ind]/self.sim.ctrl[key][nonzero_ind] - 1
+            #     else:
+            #         state[key] = val/self.sim.ctrl[key] - 1
+        elif self.rl_state_len == 3:
+            current = self.sim.current_ctrl[self.param][[int(self.index)]]
+            fiducial = self.sim.ctrl[self.param][[int(self.index)]]
+            state[self.param+self.index] = current/fiducial - 1 
+        elif self.rl_state_len == 2:
+            state = self._add_ctrl_to_state(self.param, state)
+
         return state
         
     def get_quantum_state(self, rl_state='full_dm'):
@@ -223,21 +245,16 @@ class ContinuousTransmonEnv(gym.Env):
             state = self.ket
         return state.flatten().view(np.float64)
     
-#     def get_state(self,rl_state='full_dm'):
-#         if 'full_dm' in rl_state:
-#             state = self.state
-#         elif 'pca_dm' in rl_state:
-#             state = pca(self.state,self.sim.num_level,self.sim.L,order=self.pca_order,test=False)
-#         elif 'ket' in rl_state:
-#             state = self.ket
-#         state = state.flatten().view(np.float64)
+    def get_state(self,rl_state='full_dm'):
+        if 'full_dm' in rl_state:
+            state = self.state
+        elif 'pca_dm' in rl_state:
+            state = pca(self.state,self.sim.num_level,self.sim.L,order=self.pca_order,test=False)
+        elif 'ket' in rl_state:
+            state = self.ket
+        state = state.flatten().view(np.float64)
         
-#         if 'ctrl' in rl_state:
-#             ctrl = self.sim.current_ctrl
-#             ctrl_state = np.hstack([ctrl['drive'],ctrl['detune'],ctrl['anharm'],ctrl['coupling']])/2/np.pi/1e6
-#             state = np.hstack([ctrl_state,state])
-
-#         return state
+        return state
         
     def update_init_target_state(self,init_state,target_state):
         self.init_state = init_state
