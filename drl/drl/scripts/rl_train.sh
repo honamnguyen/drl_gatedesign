@@ -47,6 +47,7 @@ eval "$(conda shell.bash hook)"
 
 # python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg_noise1e-2_ketctrl_hid800,800,800 -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channels 12 -evolvemethod TISE -rewardtype average -ctrlnoise 1e-2 -rlstate ket_ctrl -hidsizes 800,800,800 -numiter 20000 # Rerun CNOT with ket_ctrl and ctrl_noise, larger network
 
+# python rl_train.py -study linux_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1440dt_seg20_sub0.1_avg_twinq_delay2 -targetgate NOTC -numworkers 4 -IBMbackend valencia -IBMqubits 10 -seed 167 -channels 12 -evolvemethod TISE -duration 1440 -numseg 20 -subactionscale 0.1 -rewardtype average -td3twinq -td3policydelay 2 ## try NOTC again
 
 
 ########### ON MAC ###########
@@ -60,7 +61,7 @@ conda activate julius64
 
 # python rl_train.py -numworkers 4 -study mac_4w_IBMvalencia_q10_ratio5_seed167_chan12_TISE_dur1120dt_seg40_sub0.05_twinq_delay2_avg -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -IBMUDratio 5 -subactionscale 0.05 -seed 167 -duration 1120 -numseg 40 -channel 12 -evolvemethod TISE -rewardtype average -td3policydelay 2 -td3twinq # Get CNOT to combine to get NOTC, try ratio 5 (i.e. max_diff for Hadamard is 0.01)
 
-python rl_train.py -numworkers 4 -study mac_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg_noise1e-2_ketdrive -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channels 12 -evolvemethod TISE -rewardtype average -ctrlnoise 1e-2 -rlstate ket_drive # Rerun CNOT with ket_ctrl and ctrl_noise
+python rl_train.py -numworkers 4 -study mac_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg_noise1e-2_drive_ketdrive -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channels 12 -evolvemethod TISE -rewardtype average -ctrlnoise 1e-2 -ctrlnoiseparam drive -rlstate ket_drive # Rerun CNOT with rl_state=ket_drive and ctrl_noise for drive
 
 
 # to run much later

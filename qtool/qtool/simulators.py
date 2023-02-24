@@ -1,5 +1,6 @@
 # copy file here to modify
 import numpy as np
+from copy import deepcopy
 from typing import Dict, List, Tuple
 from scipy.linalg import expm
 from qtool.utility import *
@@ -48,15 +49,16 @@ class TransmonDuffingSimulator(object):
         # System control + control noise
         self.ctrl = params['ctrl']
         self.ctrl_noise = params['ctrl_noise']
+        self.ctrl_noise_param = self.ctrl.keys() if params['ctrl_noise_param'] == 'all' else params['ctrl_noise_param'].split('_')
         self.ctrl_update_freq = params['ctrl_update_freq']
         assert self.ctrl_update_freq in ['everystep','everyepisode']
-        self.current_ctrl = self.ctrl.copy()
+        self.current_ctrl = deepcopy(self.ctrl)
         
         if self.ctrl_noise:  
             if self.ctrl_noise > 1:
                 print(f'-   {self.ctrl_update_freq}: Noisy control with variance: {self.ctrl_noise/MHz} MHZ')
             else:
-                print(f'-   {self.ctrl_update_freq}: Noisy control with variance: {self.ctrl_noise*100}%')
+                print(f"-   {self.ctrl_update_freq}: Noisy control '{params['ctrl_noise_param']}' with variance: {self.ctrl_noise*100}%")
         else:
             print('-   Noiseless control')
         self.calculate_H_sys(self.ctrl) # Save system hamiltonian for no noise case
@@ -78,14 +80,17 @@ class TransmonDuffingSimulator(object):
         '''
         Update current control parameters with noise: current_ctrl, H_sys
         '''
-        current_ctrl = {}
-        for param in self.ctrl.keys():
-            noise_var = self.ctrl_noise if self.ctrl_noise >= 1 else self.ctrl_noise*abs(self.ctrl[param])
-            current_ctrl[param] =  np.random.normal(self.ctrl[param],noise_var)
-
-        coupling = current_ctrl['coupling']
-        anharm = current_ctrl['anharm']
-        detune = current_ctrl['detune']
+        current_ctrl = deepcopy(self.ctrl)
+        # support updating a type of param or a single param at a time
+        for param in self.ctrl_noise_param:
+            if param[-1].isdigit():
+                mean = self.ctrl[param[:-1]][int(param[-1])]
+                noise_var = self.ctrl_noise if self.ctrl_noise >= 1 else self.ctrl_noise*abs(mean)
+                current_ctrl[param[:-1]][int(param[-1])] =  np.random.normal(mean,noise_var)    
+            else:
+                mean = self.ctrl[param]
+                noise_var = self.ctrl_noise if self.ctrl_noise >= 1 else self.ctrl_noise*abs(mean)
+                current_ctrl[param] =  np.random.normal(mean,noise_var)
         
         self.current_ctrl = current_ctrl
         self.calculate_H_sys(current_ctrl)            

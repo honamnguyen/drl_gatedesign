@@ -39,6 +39,7 @@ def parser_init(parser):
     parser.add_argument('-detuning',default='115,0',help='Detuning frequencies (MHz). Default: 115,0')
     parser.add_argument('-coupling',type=float,default=1.87,help='Coupling strength between two transmons (MHz). Default: 1.87')
     parser.add_argument('-ctrlnoise',type=float,default=0,help='Noisy control variance in % or in Hz. Default: 0')
+    parser.add_argument('-ctrlnoiseparam',default='all',help='Noisy control parameters. Default: all')
     parser.add_argument('-ctrlupdatefreq',default='everyepisode',help='Control update freq. Default: everyepisode')
     parser.add_argument('-rewardtype',default='worst',help='Reward type: worst or average. Default: worst')
     parser.add_argument('-rewardscheme',default='fnli',help='Reward scheme. Default: fnli')
@@ -134,6 +135,7 @@ def transmon_kw(args):
         'freq': freq,
     }
     ctrl_noise = args.ctrlnoise
+    ctrl_noise_param = args.ctrlnoiseparam
     ctrl_update_freq = args.ctrlupdatefreq
 
     # state
@@ -153,7 +155,7 @@ def transmon_kw(args):
     evolve_method = args.evolvemethod
 
     kw = initialize_transmon_env('TransmonDuffingSimulator', num_transmon, num_level, 
-                                 sim_frame_rotation, ctrl, ctrl_noise, ctrl_update_freq,
+                                 sim_frame_rotation, ctrl, ctrl_noise, ctrl_noise_param, ctrl_update_freq,
                                  num_seg, dt, target_gate,
                                  rl_state, pca_order,
                                  reward_type, reward_scheme, fid_threshold, worstfid_method,

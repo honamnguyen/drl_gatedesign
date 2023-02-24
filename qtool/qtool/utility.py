@@ -256,6 +256,8 @@ def common_gate(name):
                                    [0, 1, 0, 0],
                                    [0, 0, 0, 1]]), 
                  'X': X,
+                 'Y': Y,
+                 'Z': Z,
                  'XI': tensor([X,I]),
                  'IX': tensor([I,X]),
                  
