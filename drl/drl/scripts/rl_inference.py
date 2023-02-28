@@ -31,6 +31,7 @@ if __name__ == '__main__':
     config['env_config']['step_params']['reward_scheme'] = 'local-fidelity-difference-nli'
     config['env_config']['step_params']['reward_type'] =  'worst'
     config['env_config']['qsim_params']['ctrl_noise'] = 0
+    config['env_config']['qsim_params']['ctrl_noise_param'] = 'all'
     config['env_config']['qsim_params']['ctrl_update_freq'] = 'everyepisode'
     if args.concat: 
         config['env_config']['rl_state'] += '_concat'

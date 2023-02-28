@@ -209,9 +209,9 @@ def get_ket_basis(num_level,num_transmon):
 ################################## QUANTUM GATES ##################################
 ###################################################################################
 
-zero = np.array([[1,0],[0,0]])
-one = np.array([[0,0],[0,1]])
-I = np.eye(2)
+P0 = np.array([[1,0],[0,0]])
+P1 = np.array([[0,0],[0,1]])
+I = np.array([[1,0],[0,1]])
 X = np.array([[0,1],[1,0]])
 Y = np.array([[0,-1j],[1j,0]])
 Z = np.array([[1,0],[0,-1]])
@@ -244,7 +244,7 @@ def common_gate(name):
                                    [0, 0, 0, 1],
                                    [0, 0, 1, 0]]),
                  
-                 'NOTC': tensor([I,zero])+tensor([X,one]),
+                 'NOTC': tensor([I,P0])+tensor([X,P1]),
                  
                  'NOTCCNOT': np.array([[1, 0, 0, 0],
                                        [0, 0, 1, 0],
