@@ -9,13 +9,62 @@ from qtool.scqp import solve_SCQP
 #################################### MISC ###################################
 #############################################################################
 
-def tensor(arr):
+# def tensor(arr):
+#     '''
+#     Return the tensor product of all operators in arr
+#     '''
+#     prod = arr[0]
+#     for i in range(1,len(arr)):
+#         prod = np.kron(prod,arr[i])
+#     return prod
+
+ALPHABET = ['an', 'bo', 'cp', 'dq', 'er', 'fs', 'gt', 'hu', 'iv', 'jw', 'kx', 'ly', 'mz']
+
+def tensor(arr, method='einsum_loop',args=None):
     '''
     Return the tensor product of all operators in arr
+    arr: [P_1,P_2,P_3,...,P_N]
+    method:
+        kron_loop: 
+            supports a single P_i with battch dimension
+        einsum_loop: 
+            replace kron with einsum
+            best for changing final_dim + len(arr) and num_qubts>4
+            supports multiple P_is with the same batch dimension
+        einsum: 
+            use einsum directly, requires args=(subscripts,final_dim), supports max(len(arr)) <= 13 (4.1x faster) 
+            best for many shots with fixed final_dim + len(arr) and num_qubits<=4
     '''
-    prod = arr[0]
-    for i in range(1,len(arr)):
-        prod = np.kron(prod,arr[i])
+    if len(arr) == 1:
+        return arr[0]
+    if method == 'kron_loop':
+        prod = arr[0]
+        for i in range(1,len(arr)):
+            prod = np.kron(prod,arr[i])
+    elif method == 'einsum_loop':
+        prod = arr[0]
+        for i in range(1,len(arr)):
+            # skip scalar
+            if type(arr[i]) == int:
+                continue
+            m,n = len(prod.shape),len(arr[i].shape)
+            # support same batch_dimension for some operators in arr
+            if m == n == 2:
+                subscripts = 'im,jn'
+                dim = prod.shape[-1]*arr[i].shape[-1]
+                prod = np.einsum(subscripts,prod,arr[i]).reshape(dim,dim)
+            else:
+                if m == 2 and n == 3:
+                    subscripts = 'im,ajn'
+                elif m == 3 and n == 2:
+                    subscripts = 'aim,jn'
+                elif m == 3 and n == 3:
+                    subscripts = 'aim,ajn->aijmn'                
+                dim = prod.shape[-1]*arr[i].shape[-1]
+                prod = np.einsum(subscripts,prod,arr[i]).reshape(-1,dim,dim)
+    elif method == 'einsum':
+        final_dim, subscripts = args
+        return np.einsum(subscripts,*arr).reshape(final_dim,final_dim)
     return prod
 
 def qubit_subspace(num_level,num_transmon):
@@ -678,7 +727,7 @@ def Z_shift(pulse,theta):
     shifted_pulse[:,1] = complex_pulse.imag
     return shifted_pulse
 
-def plot_pulse(pulse,channel_labels,axs=None,xlim=None,ylim='adjusted'):
+def plot_pulse(pulse,channel_labels,axs=None,xlim=None,ylim='adjusted',subplotsize=1):
     '''
     For discretized complex pulse
     '''
@@ -690,7 +739,7 @@ def plot_pulse(pulse,channel_labels,axs=None,xlim=None,ylim='adjusted'):
     
     num_channel = len(channel_labels)
     if axs is None:
-        fig, axs = plt.subplots(num_channel,1,sharex=True,figsize=(10,1*num_channel))
+        fig, axs = plt.subplots(num_channel,1,sharex=True,figsize=(10,subplotsize*num_channel))
     if num_channel == 1: axs = [axs]
     for i in range(num_channel):
         axs[i].fill_between(steps,pulse[:,i].real  ,color='C3',step='post',alpha=0.4)
@@ -738,3 +787,4 @@ def bloch_vecs(kets, q_idx):
     vecs = np.array(vecs)
     assert abs(vecs.imag).max()<1e-9
     return vecs.real
+

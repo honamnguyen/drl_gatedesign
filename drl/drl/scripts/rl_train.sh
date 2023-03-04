@@ -41,7 +41,7 @@ conda activate julius
 
 # python rl_train.py -numworkers 4 -study IBMvalencia_q10_seed167_workers4_chan012_dur1120dt_seg20_sub0.1_batch150_delay1 -targetgate NOTCCNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channel 012 -batchsize 150 -td3policydelay 1 -evolvemethod TDSE 
 
-python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed1_chan12_TISE_dur1120dt_seg20_sub0.1_avg_noise5e-2_detune0_ketdetune0 -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 1 -duration 1120 -numseg 20 -channels 12 -evolvemethod TISE -rewardtype average -ctrlnoise 5e-2 -ctrlnoiseparam detune0 -rlstate ket_detune_0 -numiter 20000 # Rerun CNOT with changing hardware params
+python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg_noise5e-2_detune0_ketdetune0_hid800,800,800 -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channels 12 -evolvemethod TISE -rewardtype average -ctrlnoise 5e-2 -ctrlnoiseparam detune0 -rlstate ket_detune_0 -hidsizes 800,800,800 -numiter 20000 # Rerun CNOT with changing hardware params
 
 
 # python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed167_chan12_TISE_dur1120dt_seg20_sub0.1_avg_hid200,100,50 -targetgate CNOT -IBMbackend valencia -IBMqubits 10 -subactionscale 0.1 -seed 167 -duration 1120 -numseg 20 -channels 12 -evolvemethod TISE -rewardtype average -hidsizes 200,100,50 -numiter 20000 # test with smaller networks
