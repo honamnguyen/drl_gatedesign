@@ -77,6 +77,6 @@ if __name__ == '__main__':
         data['worst_fids'] = np.array(data['worst_fids'])
         data['leakages'] = np.array(data['leakages'])
         if args.map: data['map'] = np.array(data['map'])
-        name = checkpoint.replace('checkpoint_',f'RLPulse_run{args.run}_ep')+f'_{env.fid:.5f}_{env.avg_fid:.5f}{suffix}.pkl'
+        name = checkpoint.replace('checkpoint_',f'RLPulse_run{args.run}_{env.fid:.5f}_{env.avg_fid:.5f}{suffix}_ep')+'.pkl'
         pickle.dump(data, open(name, 'wb') )
         # np.save(checkpoint.replace('checkpoint',f'pulse_nli{episode_reward:.3f}')+'.npy', np.array(actions))

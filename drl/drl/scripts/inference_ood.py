@@ -1,4 +1,4 @@
-import argparse, os, glob, pickle, sys
+import argparse, os, glob, pickle, sys, time
 from copy import deepcopy
 os.environ['KMP_DUPLICATE_LIB_OK']='True'
 
@@ -56,6 +56,8 @@ if __name__ == '__main__':
     # param = 'anharm' #'coupling'
     # params = ['detune0'] #'drive_detune_anharm_coupling'
     params = args.ctrlnoiseparam.split('_')
+    start = time.time()
+    env = transmon_env_creator(config['env_config'])
     for param in params: 
         data[param] = {
             'values': [],
@@ -69,18 +71,20 @@ if __name__ == '__main__':
             data[param]['fiducial'] = config['env_config']['qsim_params']['ctrl'][param]
 
 
-        print('\n Fiducial value:',data[param]['fiducial'])
+        print(f'\n Fiducial values for {param}:',data[param]['fiducial']/2/np.pi/1e6)
         # Loop over variations in physical parameters
         param_range = np.linspace(1-args.ctrlnoise,1+args.ctrlnoise,51)
         for factor in param_range:
             env_config = deepcopy(config['env_config'])
             val = data[param]['fiducial']*factor
+            print('   ',val/2/np.pi/1e6)
             if param[-1].isdigit():
                 env_config['qsim_params']['ctrl'][param[:-1]][int(param[-1])] = val
             else:
                 env_config['qsim_params']['ctrl'][param] = val
             data[param]['values'].append(val)
-            env = transmon_env_creator(env_config)
+            env.sim.reset_ctrl(env_config['qsim_params'])
+            # env = transmon_env_creator(env_config)
 
             obs = env.reset()
             done = False
@@ -100,3 +104,4 @@ if __name__ == '__main__':
         print('\n Fiducial value:',data[param]['fiducial'])
         print(data[param]['avg_fids'])
         pickle.dump(data, open(checkpoint.replace('checkpoint',f'RL_variation{args.ctrlnoise}_{"_".join(params)}')+'.pkl', 'wb') )
+    print(f'\n Took {time.time()-start:.3f} sec')

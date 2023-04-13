@@ -667,9 +667,31 @@ try:
     #         if XI_params is not None: cancel_pulse = cancel_pulse[:,[1]]
     #         cr_pulse = np.hstack([cr_pulse, cancel_pulse])
     #     return cr_pulse
+#     def qiskit_cr_pulse(duration, amp, sigma, width, phi, XI_params=None, 
+#                         cancel_amp=None, cancel_phi=None, 
+#                         rotary_amp=None, rotary_phi=None):
+#         cr_pulse = _base_cr_pulse(duration, amp, sigma, width, phi, XI_params)
+
+#         # if echo
+#         if XI_params is not None: 
+#             if cancel_amp is not None:
+#                 cancel_pulse = _base_cr_pulse(duration, cancel_amp, sigma, width, cancel_phi, XI_params)[:,[1]]
+#                 cr_pulse = np.hstack([cr_pulse, cancel_pulse])
+#         # if direct
+#         else:
+#             if (cancel_amp is not None) or (rotary_amp is not None):
+#                 target_pulse = np.zeros_like(cr_pulse)
+#                 if cancel_amp is not None:
+#                     target_pulse += _base_cr_pulse(duration, cancel_amp, sigma, width, cancel_phi)
+#                 if rotary_amp is not None:
+#                     risefall = duration-width
+#                     rotary_pulse = _base_cr_pulse(duration//2, rotary_amp, sigma, width-duration//2, rotary_phi)
+#                     target_pulse += np.vstack([rotary_pulse,-rotary_pulse])
+#                 cr_pulse = np.hstack([cr_pulse, target_pulse])
+#         return cr_pulse
     def qiskit_cr_pulse(duration, amp, sigma, width, phi, XI_params=None, 
                         cancel_amp=None, cancel_phi=None, 
-                        rotary_amp=None, rotary_phi=None):
+                        rotary_amp=None, rotary_phi=None, output_all=False):
         cr_pulse = _base_cr_pulse(duration, amp, sigma, width, phi, XI_params)
 
         # if echo
@@ -682,13 +704,18 @@ try:
             if (cancel_amp is not None) or (rotary_amp is not None):
                 target_pulse = np.zeros_like(cr_pulse)
                 if cancel_amp is not None:
-                    target_pulse += _base_cr_pulse(duration, cancel_amp, sigma, width, cancel_phi)
+                    cancel_pulse = _base_cr_pulse(duration, cancel_amp, sigma, width, cancel_phi)
+                    target_pulse += cancel_pulse
                 if rotary_amp is not None:
                     risefall = duration-width
-                    rotary_pulse = _base_cr_pulse(duration//2, rotary_amp, sigma, width-duration//2, rotary_phi)
-                    target_pulse += np.vstack([rotary_pulse,-rotary_pulse])
+                    rotary = _base_cr_pulse(duration//2, rotary_amp, sigma, width-duration//2, rotary_phi)
+                    rotary_pulse = np.vstack([rotary,-rotary])
+                    target_pulse += rotary_pulse
                 cr_pulse = np.hstack([cr_pulse, target_pulse])
-        return cr_pulse
+        if output_all:
+            return cr_pulse, cancel_pulse, rotary_pulse
+        else:
+            return cr_pulse
 except:
     print('Qiskit not found. Some pulse shapes are not available.')
 
@@ -727,7 +754,7 @@ def Z_shift(pulse,theta):
     shifted_pulse[:,1] = complex_pulse.imag
     return shifted_pulse
 
-def plot_pulse(pulse,channel_labels,axs=None,xlim=None,ylim='adjusted',subplotsize=1):
+def plot_pulse(pulse,channel_labels,axs=None,xlim=None,ylim='adjusted',ysize=1,xsize=10):
     '''
     For discretized complex pulse
     '''
@@ -739,7 +766,7 @@ def plot_pulse(pulse,channel_labels,axs=None,xlim=None,ylim='adjusted',subplotsi
     
     num_channel = len(channel_labels)
     if axs is None:
-        fig, axs = plt.subplots(num_channel,1,sharex=True,figsize=(10,subplotsize*num_channel))
+        fig, axs = plt.subplots(num_channel,1,sharex=True,figsize=(xsize,ysize*num_channel))
     if num_channel == 1: axs = [axs]
     for i in range(num_channel):
         axs[i].fill_between(steps,pulse[:,i].real  ,color='C3',step='post',alpha=0.4)
