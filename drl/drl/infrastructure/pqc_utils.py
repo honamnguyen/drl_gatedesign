@@ -29,11 +29,13 @@ def parser_init(parser):
     parser.add_argument('-numqubits',type=int,default=1,help='Number of qubits. Default: 1')
     parser.add_argument('-maxdepth',type=int,default=5,help='Maximum gate depth. Default: 5')
     parser.add_argument('-rewardscheme',default='dense',help='Reward scheme. Default: dense')
+    parser.add_argument('-depthpenalty',type=float,default=0,help='Depth penalty. Default: 0')
     parser.add_argument('-kltarget',type=float,default=0,help='Target KL divergence. Default: 0')
     parser.add_argument('-klshots',type=int,default=20000,help='Shots used to estimate KL divergence. Default: 20000')
     parser.add_argument('-kltrials',type=int,default=5,help='Trials used to estimate KL divergence. Default: 5')
     parser.add_argument('-rlstate',default='2D',help='State type for RL agent. Default: 2D')
-    parser.add_argument('-entgate',default='CX',help='Two qubit entangeling gate. Default: CX')
+    parser.add_argument('-q2gates',default='CX',help='Two qubit entangeling gates. Default: CX')
+    parser.add_argument('-q1gates',default='H_RX_RZ',help='Single qubit gates. Default: H_RX_RZ')
     
     # networks
     parser.add_argument('-hiddens',default='16,16',help='Hidden layer sizes. Default: 16,16')
@@ -69,8 +71,10 @@ def get_kw(args):
     
     # physical setting
     num_qubits = args.numqubits
-    if args.entgate in ['CX','CY','CZ']:
-        gateset = [['H','RX','RZ'],[args.entgate]]
+#     if args.entgate in ['CX','CY','CZ']:
+#         gateset = [['H','RX','RZ'],[args.entgate]]
+    gateset = [args.q1gates.split('_'),args.q2gates.split('_')]
+    print(gateset)
     
     # state
     rl_state = args.rlstate
@@ -78,6 +82,7 @@ def get_kw(args):
     # reward
     max_depth = args.maxdepth
     reward_scheme = args.rewardscheme
+    depth_penalty = args.depthpenalty
     # reward_scheme = rsdict[args.rewardscheme[0]]+args.rewardscheme[1:]
     kl_target = args.kltarget
     kl_shots = args.klshots
@@ -88,7 +93,7 @@ def get_kw(args):
         'step_params': {
             'max_depth': max_depth,
             'reward_scheme': reward_scheme, # dense
-            'depth_penalty': 0,
+            'depth_penalty': depth_penalty,
             'kl_shots': kl_shots,
             'kl_trials': kl_trials,
             'num_bins': 75,
