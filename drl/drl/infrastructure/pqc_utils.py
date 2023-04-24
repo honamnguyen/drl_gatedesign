@@ -36,6 +36,7 @@ def parser_init(parser):
     parser.add_argument('-rlstate',default='2D',help='State type for RL agent. Default: 2D')
     parser.add_argument('-q2gates',default='CX',help='Two qubit entangeling gates. Default: CX')
     parser.add_argument('-q1gates',default='H_RX_RZ',help='Single qubit gates. Default: H_RX_RZ')
+    parser.add_argument('-method',default='precalc',help='Single qubit gates. Default: precalc')
     
     # networks
     parser.add_argument('-hiddens',default='16,16',help='Hidden layer sizes. Default: 16,16')
@@ -75,6 +76,7 @@ def get_kw(args):
 #         gateset = [['H','RX','RZ'],[args.entgate]]
     gateset = [args.q1gates.split('_'),args.q2gates.split('_')]
     print(gateset)
+    method = args.method
     
     # state
     rl_state = args.rlstate
@@ -103,6 +105,7 @@ def get_kw(args):
             'name': 'PQC',
             'num_qubits': num_qubits,
             'gateset': gateset,
+            'method': method,
         },
     }
 

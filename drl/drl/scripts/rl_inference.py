@@ -19,7 +19,7 @@ if __name__ == '__main__':
     parser.add_argument('-run',default='0000',help='Name fragments of run. Default: 0000.')
     parser.add_argument('-chpt',default='0000',help='Checkpoint. Default: 0000.')
     parser.add_argument('-map',action=argparse.BooleanOptionalAction,help='Store unitary map or not. Default: None')
-    parser.add_argument('-concat',action=argparse.BooleanOptionalAction,help='Add concat to rl_state for runs before dict obs space. Default: None')
+    parser.add_argument('-concat',action=argparse.BooleanOptionalAction,help='Add concat to rl_state for runs before dict obs space. Anything before 2022-02-17. Default: None')
     args = parser.parse_args()
 
     ### ----- LOAD CONFIG + UPDATE----- ###

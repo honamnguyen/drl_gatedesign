@@ -12,7 +12,7 @@ class PQC():
         self.N = 2**self.num_qubits
         self.sequence = []
         self.gateset_1q, self.gateset_2q = params['gateset']
-        
+        self.method = params['method'] if 'method' in params else 'standard'
         # Set up gateset, 1q gate is its own class, 2q gate is split to control and target
         self.gatelist = []
         self.gateclass = []
@@ -26,7 +26,54 @@ class PQC():
             self.gateclass.append(gate+'_targ')
             for qubits in itertools.permutations(range(self.num_qubits),2):
                 self.update_gateset(gate, list(qubits))
+                
+        if self.method == 'precalc':
+            self.precalc_init()
+
         self.reset()
+    
+    def precalc_init(self):
+        print('Precalculating gate combinations')
+        # add base_gateset to gatedict
+        self.base_gateset_1q = [g.replace('R','') for g in self.gateset_1q] 
+        self.base_gateset_2q = self.gateset_2q
+        assert len(self.base_gateset_2q) == 1
+        for gate in self.base_gateset_1q: 
+            if gate not in self.gateset_1q:
+                for qubit in range(self.num_qubits):
+                    gatename, unitary = gate_to_unitary(gate, [qubit], self.num_qubits)
+                    self.gatedict[gatename] = unitary
+                    
+        # precalculate unitaries for all gate combinations in one layer
+        self.gate_combinations = {}
+        # loop through the allowed number of 2q gates
+        for num_2q in range(self.num_qubits//2+1):
+            num_1q = self.num_qubits - 2*num_2q
+            gatecombs_1q = list(itertools.product(['I']+self.base_gateset_1q,repeat=num_1q)) 
+            all_locs = [str(q) for q in range(self.num_qubits)]
+
+            # loop over ctrl_loc in all_locs
+            for ctrl_loc in itertools.combinations(all_locs, num_2q):
+                remain_locs = [loc for loc in all_locs if loc not in ctrl_loc]
+                # loop over targ_loc in remain_locs
+                for targ_loc in itertools.combinations(remain_locs, num_2q):
+                    locs_1q = [loc for loc in remain_locs if loc not in targ_loc]
+                    for targ_ind in itertools.permutations(targ_loc):
+                        layer_2q = [self.base_gateset_2q[0]+''.join(ind) for ind in zip(ctrl_loc,targ_ind)]
+                        for gatecomb in gatecombs_1q:
+                            layer = layer_2q + [''.join(ind) for ind in zip(gatecomb,locs_1q) if ind[0] != 'I']
+                            # layer = layer_2q + [''.join(ind) for ind in zip(gatecomb,locs_1q)]
+                            # Calculate tensor product for each layer
+                            U = np.eye(2**self.num_qubits)
+                            # U = sp.eye(2**self.num_qubits)
+                            for gatename in layer:
+                                # if 'I' not in gatename:
+                                    # U = pqc.gatedict[gatename] @ sp.csr_matrix(U)
+                                U = self.gatedict[gatename] @ U
+                            layer.sort()
+                            self.gate_combinations['_'.join(layer)] = U
+                            # Us.append(U.astype(np.float32))
+
             
     def update_gateset(self, gate, qubits):
         if 'R' not in gate:
@@ -38,8 +85,11 @@ class PQC():
         # state dim: [layer, qubit, gate class]
         self.state = np.zeros([1,self.num_qubits,len(self.gateclass)],dtype=int)
         self.used_qubits = np.zeros(self.num_qubits,dtype=int) #if qubit already used in current layer
-        self.fixed_Us = [np.eye(self.N)]
-        self.param_layers = [[]] # only has nontrivial gates
+        if 'standard' in self.method:
+            self.fixed_Us = [np.eye(self.N)]
+            self.param_layers = [[]] # only has nontrivial gates
+        elif 'precalc' in self.method:
+            self.layers = [[]]
         self.num_params = 0
         self.kets = []
         self.gateseq = []
@@ -55,8 +105,12 @@ class PQC():
         if (self.used_qubits[qubits]==1).any():
             self.state = np.vstack([self.state,np.zeros([1,self.num_qubits,len(self.gateclass)],dtype=int)])
             self.used_qubits *= 0
-            self.fixed_Us.append(np.eye(self.N))
-            self.param_layers.append([])
+            if 'standard' in self.method:
+                self.fixed_Us.append(np.eye(self.N))
+                self.param_layers.append([])
+            elif 'precalc' in self.method:
+                self.layers.append([])
+
             
         # update state
         self.used_qubits[qubits] = 1
@@ -67,12 +121,16 @@ class PQC():
             self.state[-1,qubits[1],self.gateclass.index(gate+'_targ')] = 1
         
         # update layer
-        if 'R' in gate:
-            self.param_layers[-1].append([gate,qubits])
-            self.num_params += 1
-        else:
-            U = self.gatedict[gate+''.join([str(q) for q in qubits])]
-            self.fixed_Us[-1] = U @ self.fixed_Us[-1]   
+        if 'standard' in self.method:
+            if 'R' in gate:
+                self.param_layers[-1].append([gate,qubits])
+                self.num_params += 1
+            else:
+                U = self.gatedict[gate+''.join([str(q) for q in qubits])]
+                self.fixed_Us[-1] = U @ self.fixed_Us[-1] 
+        elif 'precalc' in self.method:
+            self.layers[-1].append(''.join([str(x) for x in [gate,*qubits]]))
+            if 'R' in gate: self.num_params += 1
             
     def get_state(self, state_type):
         if '2D' in state_type:
@@ -93,37 +151,77 @@ class PQC():
         self.thetas = thetas = override_thetas if len(override_thetas) else np.random.uniform(0, 2*np.pi, size=[self.num_params, shots])
 
         ### evolution with a batch of sample ###
-        ket0 = np.eye(self.N)[0][None]
         param_i = 0
-        for i in range(len(self.fixed_Us)):
-            # ket0 = self.fixed_Us[i][None] @ ket0
-            ket0 = np.einsum('jk,ik->ij',self.fixed_Us[i],ket0)
-            if len(self.param_layers[i]) > 0:
-                param_Us = [[I]*self.num_qubits]
-                
-                # Supports only one-qubit parameterized gates
-                for gate, qubits in self.param_layers[i]:
-                    # param_Us[qubits[0]] = parameterized_gates(gate)(thetas[param_i]) 
-                    for U in param_Us:
-                        U[qubits[0]] = parameterized_gates(gate)(thetas[param_i]) 
-                    param_i += 1
-                    
-                ### TODO: generalize for two-qubit paramterized gates ###
-#                 param_Us = [[I]*self.num_qubits]
-#                 for gate, qubits in self.param_layers[i]:
-#                     if 
-#                     param_Us[qubits[0]] = parameterized_gates(gate)(thetas[param_i]) 
-#                     param_i += 1
+        
+        if 'standard' in self.method:
+            ket0 = np.eye(self.N)[0][None]
+            for i in range(len(self.fixed_Us)):
+                # ket0 = self.fixed_Us[i][None] @ ket0
+                # ket0 = np.einsum('jk,bk->bj',self.fixed_Us[i],ket0)
+                ket0 = ket0@self.fixed_Us[i].T
+                if len(self.param_layers[i]) > 0:
+                    param_Us = [[I]*self.num_qubits]
 
-#                 prod_id = [I]*num_qubits
-#                 prod_x = [I]*num_qubits
-#                 prod_id[qubits[0]] = P0
-#                 prod_x[qubits[0]] = P1
-#                 prod_x[qubits[1]] = common_gate(gate[-1])
-                # U = tensor(prod_id) + tensor(prod_x)
+                    # Supports only one-qubit parameterized gates
+                    for gate, qubits in self.param_layers[i]:
+                        # param_Us[qubits[0]] = parameterized_gates(gate)(thetas[param_i]) 
+                        for U in param_Us:
+                            U[qubits[0]] = parameterized_gates(gate)(thetas[param_i]) 
+                        param_i += 1
+
+                    ### TODO: generalize for two-qubit paramterized gates ###
+    #                 param_Us = [[I]*self.num_qubits]
+    #                 for gate, qubits in self.param_layers[i]:
+    #                     if 
+    #                     param_Us[qubits[0]] = parameterized_gates(gate)(thetas[param_i]) 
+    #                     param_i += 1
+
+    #                 prod_id = [I]*num_qubits
+    #                 prod_x = [I]*num_qubits
+    #                 prod_id[qubits[0]] = P0
+    #                 prod_x[qubits[0]] = P1
+    #                 prod_x[qubits[1]] = common_gate(gate[-1])
+                    # U = tensor(prod_id) + tensor(prod_x)
+
+                    ket0 = np.einsum('ijk,ik->ij',sum([tensor(U) for U in param_Us]),ket0)
+                    # temp = sum([tensor(U) for U in param_Us])@ket0.T
+                    # ket0 = np.einsum('iji->ij',temp)
                 
-                ket0 = np.einsum('ijk,ik->ij',sum([tensor(U) for U in param_Us]),ket0)
-                # ket0 = np.einsum('ijk,ik->ij',tensor(param_Us),ket0)
+        elif 'precalc' in self.method:
+            ket0 = np.repeat(np.eye(self.N)[0][None],shots,0)
+            ket = 0
+            for layer in self.layers:
+                prods = np.array([['NA']])
+                coeffs = np.array([[1]])
+                for gate_qubits in layer:
+                    # break RX to I and X
+                    if 'R' in gate_qubits:
+                        gate = gate_qubits[:-1]
+                        prods = np.hstack([np.vstack([prods,[gate_qubits.replace(gate,'I')]*prods.shape[1]]),
+                                            np.vstack([prods,[gate_qubits.replace('R','')]*prods.shape[1]])])
+                        coeffs = np.vstack([    np.cos(thetas[param_i]/2)*coeffs,
+                                            -1j*np.sin(thetas[param_i]/2)*coeffs])
+                        param_i += 1
+                    else:
+                        prods = np.vstack([prods,[gate_qubits]*prods.shape[1]])
+                prods = prods[1:].T.tolist()
+
+                #loop over all terms with the appropriate coefficients
+                for i in range(len(prods)):
+                    prod = [gate for gate in prods[i] if 'I' not in gate]
+                    prod.sort()
+                    U = self.gate_combinations['_'.join(prod)]
+                    # ket += np.einsum('b,ij,bj->bi',coeffs[i],U,ket0)
+                    # ket += coeffs[i][:,None]*ket0.dot(U.T)
+                    ket += np.multiply(coeffs[i][:,None],ket0).dot(U.T)
+                ket0 = ket.copy()
+                ket = 0
+                    
+                # Us = np.array([self.gate_combinations['_'.join([gate for gate in prod if 'I' not in gate])] for prod in prods])
+                # # ket0 = np.einsum('ab,aij,bj->bi',coeffs,Us,ket0)
+                # # ket0 = np.einsum('ijk,jk->ji',coeffs.T@np.moveaxis(Us,0,1),ket0)
+                # ket0 = np.einsum('jk,ijk->ki',coeffs,np.moveaxis(Us,0,1)@ket0.T)
+    
         if ket0.shape[0] == 1:
             self.kets = np.repeat(ket0,shots,axis=0)
             return np.repeat(ket0,shots,axis=0)
@@ -362,14 +460,29 @@ def tensor(arr, method='einsum_loop',args=None):
 
 def common_gate(name):
     gate_dict = { 
+        'I': I,
         'X': X,
         'Y': Y,
         'Z': Z,
         'H': 1/np.sqrt(2)*np.array([[1,1],[1,-1]]),
         'SX': 0.5*np.array([[1+1j,1-1j],[1-1j,1+1j]]),
+        'CX': np.array([[1, 0, 0, 0],
+                       [0, 1, 0, 0],
+                       [0, 0, 0, 1],
+                       [0, 0, 1, 0]]),
+        'CY': np.array([[1, 0, 0, 0],
+                       [0, 1, 0, 0],
+                       [0, 0, 0, -1j],
+                       [0, 0, 1j, 0]]),
+        'CZ': np.array([[1, 0, 0, 0],
+                       [0, 1, 0, 0],
+                       [0, 0, 1, 0],
+                       [0, 0, 0, -1]]),
     }
     if name in gate_dict:
         return gate_dict[name]
+    elif 'ctrl' in name or 'targ' in name:
+        return gate_dict['I']
     else:
         print(f'The {name} gate is not implemented')
         raise NotImplementedError
