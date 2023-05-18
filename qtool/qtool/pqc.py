@@ -1,7 +1,13 @@
 #####################################################################################
 ###################################### CORE SIM ######################################
 
-import numpy as np, itertools
+import numpy as np, itertools, scipy
+from tqdm import tqdm
+
+try:
+    import tensorflow as tf
+except:
+    print('Tensorflow is not installed!')
 
 class PQC():
     '''
@@ -10,9 +16,11 @@ class PQC():
     def __init__(self, params):
         self.num_qubits = params['num_qubits']
         self.N = 2**self.num_qubits
-        self.sequence = []
         self.gateset_1q, self.gateset_2q = params['gateset']
         self.method = params['method'] if 'method' in params else 'standard'
+        self.dtype = params['dtype'] if 'dtype' in params else 'complex64'
+        self.special_type = params['special_type'] if 'special_type' in params else False
+        
         # Set up gateset, 1q gate is its own class, 2q gate is split to control and target
         self.gatelist = []
         self.gateclass = []
@@ -34,51 +42,78 @@ class PQC():
     
     def precalc_init(self):
         print('Precalculating gate combinations')
-        # add base_gateset to gatedict
+        
+        # Add base_gateset to gatedict
         self.base_gateset_1q = [g.replace('R','') for g in self.gateset_1q] 
         self.base_gateset_2q = self.gateset_2q
-        assert len(self.base_gateset_2q) == 1
+        
         for gate in self.base_gateset_1q: 
             if gate not in self.gateset_1q:
                 for qubit in range(self.num_qubits):
                     gatename, unitary = gate_to_unitary(gate, [qubit], self.num_qubits)
-                    self.gatedict[gatename] = unitary
+                    self.gatedict[gatename] = unitary.astype(self.dtype)
                     
-        # precalculate unitaries for all gate combinations in one layer
-        self.gate_combinations = {}
-        # loop through the allowed number of 2q gates
-        for num_2q in range(self.num_qubits//2+1):
-            num_1q = self.num_qubits - 2*num_2q
-            gatecombs_1q = list(itertools.product(['I']+self.base_gateset_1q,repeat=num_1q)) 
-            all_locs = [str(q) for q in range(self.num_qubits)]
+        self.gate_combinations = get_gate_combinations(self.num_qubits, 
+                                                       self.base_gateset_1q, 
+                                                       self.base_gateset_2q, 
+                                                       self.gatedict,
+                                                       self.special_type)
+#         all_loc = [str(q) for q in range(self.num_qubits)]
+#         for num_2q in range(self.num_qubits//2+1):
+#             num_1q = self.num_qubits - 2*num_2q
+#             gate_1q_products = list(itertools.product(['I']+self.base_gateset_1q, repeat=num_1q))
+#             gate_2q_products = list(itertools.product(self.base_gateset_2q, repeat=num_2q))
+            
+#             for ctrl_loc in itertools.combinations(all_loc, num_2q):
+#                 remain_loc = [loc for loc in all_loc if loc not in ctrl_loc]
+                
+#                 for targ_loc in itertools.permutations(remain_loc, num_2q):
+#                     loc_1q = [loc for loc in remain_loc if loc not in targ_loc]
+                    
+#                     for gate_2q_product in gate_2q_products:
+#                         layer_2q = [''.join(ind) for ind in zip(gate_2q_product,ctrl_loc,targ_loc)]
 
-            # loop over ctrl_loc in all_locs
-            for ctrl_loc in itertools.combinations(all_locs, num_2q):
-                remain_locs = [loc for loc in all_locs if loc not in ctrl_loc]
-                # loop over targ_loc in remain_locs
-                for targ_loc in itertools.combinations(remain_locs, num_2q):
-                    locs_1q = [loc for loc in remain_locs if loc not in targ_loc]
-                    for targ_ind in itertools.permutations(targ_loc):
-                        layer_2q = [self.base_gateset_2q[0]+''.join(ind) for ind in zip(ctrl_loc,targ_ind)]
-                        for gatecomb in gatecombs_1q:
-                            layer = layer_2q + [''.join(ind) for ind in zip(gatecomb,locs_1q) if ind[0] != 'I']
-                            # layer = layer_2q + [''.join(ind) for ind in zip(gatecomb,locs_1q)]
-                            # Calculate tensor product for each layer
-                            U = np.eye(2**self.num_qubits)
-                            # U = sp.eye(2**self.num_qubits)
-                            for gatename in layer:
-                                # if 'I' not in gatename:
-                                    # U = pqc.gatedict[gatename] @ sp.csr_matrix(U)
-                                U = self.gatedict[gatename] @ U
-                            layer.sort()
-                            self.gate_combinations['_'.join(layer)] = U
-                            # Us.append(U.astype(np.float32))
+#                         for gate_1q_product in gate_1q_products:
+#                             layer = layer_2q + [''.join(ind) for ind in zip(gate_1q_product,loc_1q) if ind[0] != 'I']
+#                             layer.sort() # to ensure a consistent order/unique key
+                            
+#                             # Calculate tensor product for each layer
+#                             U = np.eye(2**self.num_qubits) # sp.eye(2**self.num_qubits)
+#                             for gatename in layer:                                    
+#                                 U = self.gatedict[gatename] @ U # U = pqc.gatedict[gatename] @ sp.csr_matrix(U)
+#                             self.gate_combinations['_'.join(layer)] = U #U.astype(np.float32)
+                            
+#         # verify that there are no duplicates
+#         assert len(np.unique(list(self.gate_combinations.keys()))) == len(list(self.gate_combinations.keys()))
+                        
+                ######## old combinations ##########
+                # for targ_loc in itertools.combinations(remain_locs, num_2q):
+                #     locs_1q = [loc for loc in remain_locs if loc not in targ_loc]
+                #     for targ_ind in itertools.permutations(targ_loc):
+                #         print(targ_loc,targ_ind)
+                #         layer_2q = [self.base_gateset_2q[0]+''.join(ind) for ind in zip(ctrl_loc,targ_ind)]
+                #         print(layer_2q)
+                #         for gatecomb in gatecombs_1q:
+                #             layer = layer_2q + [''.join(ind) for ind in zip(gatecomb,locs_1q) if ind[0] != 'I']
+                #             # layer = layer_2q + [''.join(ind) for ind in zip(gatecomb,locs_1q)]
+                #             # Calculate tensor product for each layer
+                #             U = np.eye(2**self.num_qubits)
+                #             # U = sp.eye(2**self.num_qubits)
+                #             for gatename in layer:
+                #                 # if 'I' not in gatename:
+                #                     # U = pqc.gatedict[gatename] @ sp.csr_matrix(U)
+                #                 U = self.gatedict[gatename] @ U
+                #             layer.sort()
+                #             self.gate_combinations['_'.join(layer)] = U
+                #             # Us.append(U.astype(np.float32))
+                ########################################
 
             
     def update_gateset(self, gate, qubits):
         if 'R' not in gate:
             gatename, unitary = gate_to_unitary(gate, qubits, self.num_qubits)
-            self.gatedict[gatename] = unitary
+            self.gatedict[gatename] = unitary.astype(self.dtype)
+
         self.gatelist.append((gate,qubits))
 
     def reset(self):
@@ -188,6 +223,10 @@ class PQC():
                     # ket0 = np.einsum('iji->ij',temp)
                 
         elif 'precalc' in self.method:
+            
+            if self.special_type == 'tf':
+                return self.get_tf_unitaries(self.thetas).numpy().dot(np.eye(self.N)[0])
+            
             ket0 = np.repeat(np.eye(self.N)[0][None],shots,0)
             ket = 0
             for layer in self.layers:
@@ -224,11 +263,46 @@ class PQC():
     
         if ket0.shape[0] == 1:
             self.kets = np.repeat(ket0,shots,axis=0)
-            return np.repeat(ket0,shots,axis=0)
         else:
             self.kets = ket0
-            return ket0
-    
+        return self.kets
+        
+    def get_tf_unitaries(self, thetas):
+        if thetas.dtype is not tf.complex64:
+            thetas = tf.cast(thetas, tf.complex64)
+        if thetas.shape[0] != self.num_params:
+            thetas = tf.transpose(thetas)
+        param_i = 0
+        
+        if 'precalc' in self.method:
+            U0 = tf.repeat(tf.eye(self.N,dtype=tf.complex64)[None],thetas.shape[1],0)
+            U = 0
+            for layer in self.layers:
+                prods = np.array([['NA']])
+                coeffs = tf.constant([[1]],dtype=tf.complex64)
+                for gate_qubits in layer:
+                    # break RX to I and X
+                    if 'R' in gate_qubits:
+                        gate = gate_qubits[:-1]
+                        prods = np.hstack([np.vstack([prods,[gate_qubits.replace(gate,'I')]*prods.shape[1]]),
+                                            np.vstack([prods,[gate_qubits.replace('R','')]*prods.shape[1]])])
+                        coeffs = tf.concat([    tf.cos(thetas[param_i]/2)*coeffs,
+                                            -1j*tf.sin(thetas[param_i]/2)*coeffs],axis=0)             
+                        param_i += 1
+                    else:
+                        prods = np.vstack([prods,[gate_qubits]*prods.shape[1]])
+                prods = prods[1:].T.tolist()
+
+                #loop over all terms with the appropriate coefficients
+                for i in range(len(prods)):
+                    prod = [gate for gate in prods[i] if 'I' not in gate]
+                    prod.sort()
+                    U += coeffs[i][:,None,None]*self.gate_combinations['_'.join(prod)]
+                    
+                U0 = tf.matmul(U,U0)
+                U = 0
+        return U0
+
     def expressibility(self, shots=5000, num_bins=75, fixed_circuit=True):
         if fixed_circuit and self.num_params == 0:
             return (2**self.num_qubits-1)*np.log(num_bins), None, None
@@ -507,6 +581,84 @@ def gate_to_unitary(gate, qubits, num_qubits):
 
     return gatename, U
 
+def get_gate_combinations(num_qubits, gateset_1q, gateset_2q, gatedict, special_type=None):
+    '''
+    Calculate unitaries for all gate combinations in one layer
+
+    ---Pseudo code---
+
+    Define all locations as [0,1,num_qubit-1] -> all_loc
+
+    Loop over number of 2q gates (0,1,...,num_qubits//2) -> num_2q
+        num_1q = num_qubits - num_2q
+        Calculate products of 1q gates for num_1q qubits -> gate_1q_products
+        Calculate products of 2q gates for num_2q qubits -> gate_2q_products
+
+        Pick num_2q locations from all_loc as controls -> ctrl_loc
+            remain_loc = all_loc - ctrl_loc
+
+            Pick num_2q ordered-locations from remain_loc as targets -> targ_loc
+                loc_1q = remain_loc - targ_loc
+
+                Pick a product of 2q gates:
+                    Create a layer of 2q gates -> layer_2q
+                    
+                   Pick a product of 1q gates:
+                       layer = sort(layer_2q + layer_1q)
+                       Compute and add unitary for that layer to dict
+    '''
+    dtype = list(gatedict.values())[0].dtype
+    gate_combinations = {}
+    all_loc = [str(q) for q in range(num_qubits)]
+    for num_2q in tqdm(range(num_qubits//2+1)):
+        num_1q = num_qubits - 2*num_2q
+        gate_1q_products = list(itertools.product(['I']+gateset_1q, repeat=num_1q))
+        gate_2q_products = list(itertools.product(gateset_2q, repeat=num_2q))
+
+        # for ctrl_loc in tqdm(list(itertools.combinations(all_loc, num_2q))):
+        for ctrl_loc in itertools.combinations(all_loc, num_2q):
+            remain_loc = [loc for loc in all_loc if loc not in ctrl_loc]
+
+            for targ_loc in itertools.permutations(remain_loc, num_2q):
+                loc_1q = [loc for loc in remain_loc if loc not in targ_loc]
+
+                for gate_2q_product in gate_2q_products:
+                    layer_2q = [''.join(ind) for ind in zip(gate_2q_product,ctrl_loc,targ_loc)]
+
+                    for gate_1q_product in gate_1q_products:
+                        layer = layer_2q + [''.join(ind) for ind in zip(gate_1q_product,loc_1q) if ind[0] != 'I']
+                        layer.sort() # to ensure a consistent order/unique key
+                        
+                        # Calculate tensor product for each layer
+                        U = np.eye(2**num_qubits,dtype=dtype) # sp.eye(2**self.num_qubits)
+                        for gatename in layer:                                    
+                            # U = gatedict[gatename] @ U # U = pqc.gatedict[gatename] @ sp.csr_matrix(U)
+                            U = gatedict[gatename].dot(U) # U = pqc.gatedict[gatename] @ sp.csr_matrix(U)
+                        if special_type is None:
+                            gate_combinations['_'.join(layer)] = U
+                        elif special_type == 'sparse':
+                            gate_combinations['_'.join(layer)] = scipy.sparse.csr_matrix(U)
+                        elif special_type == 'tf':
+                            gate_combinations['_'.join(layer)] = tf.convert_to_tensor(U,dtype=tf.complex64)
+                        else:
+                            print(f'Special type {special_type} option is not implemented!')
+                            
+    assert len(np.unique(list(gate_combinations.keys()))) == len(list(gate_combinations.keys()))
+    return gate_combinations
+
+def get_saved_pqc(label):
+    
+    def get_gateset(gateseq):
+        gateset_1q = list(set([key[0] for key in gateseq if 'C' not in key[0]]))
+        gateset_2q = list(set([key[0] for key in gateseq if 'C' in key[0]]))
+        return [gateset_1q,gateset_2q]
+    
+    if 'simetal' in label:
+        gateseq = SimEtAl[node_type.split('_')[-1]]
+    else:
+        raise NotImplementedError(f'`{label}` circuit not found!')
+    return gateseq, get_gateset(gateseq)
+
 SimEtAl = {
     '9': [
         ('H',[0]),('H',[1]),('H',[2]),('H',[3]),
@@ -674,3 +826,39 @@ try:
         return state_vector.reshape(2**num_qubits)
 except:
     print('Qiskit not found. PQC_Qiskit class is not available.')
+
+if __name__ == '__main__':
+    
+    num_qubits = 4
+    num_bins = 75
+    shots = 20000
+    gateset = [['H','RX','RZ','RY'],['CZ']]
+
+    print('\n---Test precalc numpy PQC---')
+    params = {
+        'num_qubits': num_qubits,
+        'gateset': gateset,
+        'method': 'precalc',
+        'dtype': 'complex64',
+        'special_type': None,
+    }
+    pqc = PQC(params)
+    pqc.reset()
+    for gate_qubits in SimEtAl['9']:
+        pqc.append(*gate_qubits)
+    pqc.test_sample_qiskit()
+    
+    print('\n---Test precalc tensorflow PQC---')
+    params = {
+        'num_qubits': num_qubits,
+        'gateset': gateset,
+        'method': 'precalc',
+        'dtype': 'complex64',
+        'special_type': 'tf',
+    }
+    pqc = PQC(params)
+    pqc.reset()
+    for gate_qubits in SimEtAl['9']:
+        pqc.append(*gate_qubits)
+    pqc.test_sample_qiskit()
+    # print(pqc.get_tf_unitaries(tf.random.uniform([4, shots],0, 2*np.pi)))

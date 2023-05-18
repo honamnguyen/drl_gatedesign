@@ -21,7 +21,7 @@ def parser_init(parser):
     parser.add_argument('-numgpus',type=int,default=0,help='Number of GPUs. Default: 0')    
     parser.add_argument('-numiter',type=int,default=300,help='Number of iteration. Default: 300')    
     # parser.add_argument('-stepsperiter',type=int,default=100,help='Timesteps per iteration. Default: 100')    
-    parser.add_argument('-evaluationinterval',type=int,default=10,help='Number of train() steps between evaluation/save. Default: 10')
+    parser.add_argument('-evaluationinterval',type=int,default=30,help='Number of train() steps between evaluation/save. Default: 30')
     parser.add_argument('-testcount',type=int,default=1,help='Number of tests to average over. Default: 1')
     # parser.add_argument('-numbesteps',type=int,default=10,help='Number of best episodes to save. Default: 10')
         

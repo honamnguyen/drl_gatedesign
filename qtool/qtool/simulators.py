@@ -45,7 +45,7 @@ class TransmonDuffingSimulator(object):
         else:
             self.dressed_to_sim = np.eye(num_level**num_transmon)     
             
-    def reset_ctrl(self, params):
+    def reset_ctrl(self, params, verbose=True):
         # System control + control noise
         self.ctrl = params['ctrl']
         self.ctrl_noise = params['ctrl_noise']
@@ -54,13 +54,14 @@ class TransmonDuffingSimulator(object):
         assert self.ctrl_update_freq in ['everystep','everyepisode']
         self.current_ctrl = deepcopy(self.ctrl)
         
-        if self.ctrl_noise:  
-            if self.ctrl_noise > 1:
-                print(f'-   {self.ctrl_update_freq}: Noisy control with variance: {self.ctrl_noise/MHz} MHZ')
+        if verbose:
+            if self.ctrl_noise:  
+                if self.ctrl_noise > 1:
+                    print(f'-   {self.ctrl_update_freq}: Noisy control with variance: {self.ctrl_noise/MHz} MHZ')
+                else:
+                    print(f"-   {self.ctrl_update_freq}: Noisy control '{params['ctrl_noise_param']}' with variance: {self.ctrl_noise*100}%")
             else:
-                print(f"-   {self.ctrl_update_freq}: Noisy control '{params['ctrl_noise_param']}' with variance: {self.ctrl_noise*100}%")
-        else:
-            print('-   Noiseless control')
+                print('-   Noiseless control')
         self.calculate_H_sys(self.ctrl) # Save system hamiltonian for no noise case
     
     def calculate_H_sys(self, ctrl):
@@ -86,11 +87,13 @@ class TransmonDuffingSimulator(object):
             if param[-1].isdigit():
                 mean = self.ctrl[param[:-1]][int(param[-1])]
                 noise_var = self.ctrl_noise if self.ctrl_noise >= 1 else self.ctrl_noise*abs(mean)
-                current_ctrl[param[:-1]][int(param[-1])] =  np.random.normal(mean,noise_var)    
+                current_ctrl[param[:-1]][int(param[-1])] =  np.random.uniform(mean-noise_var,mean+noise_var)
+                # current_ctrl[param[:-1]][int(param[-1])] =  np.random.normal(mean,noise_var)    
             else:
                 mean = self.ctrl[param]
                 noise_var = self.ctrl_noise if self.ctrl_noise >= 1 else self.ctrl_noise*abs(mean)
-                current_ctrl[param] =  np.random.normal(mean,noise_var)
+                current_ctrl[param] =  np.random.uniform(mean-noise_var,mean+noise_var)
+                # current_ctrl[param] =  np.random.normal(mean,noise_var)
         
         self.current_ctrl = current_ctrl
         self.calculate_H_sys(current_ctrl)            
@@ -167,7 +170,7 @@ class TransmonDuffingSimulator(object):
             phase = np.where(abs(detune)>1,
                              np.exp(1j*self.dt*t_step*detune)/(1j*(detune+1e-5))*(np.exp(1j*self.dt*detune)-1), 
                              self.dt).reshape(-1,1,1)
-            H_ctrl = (H_ctrl*phase).sum(0)
+            H_ctrl = self.H_ctrl_dt = (H_ctrl*phase).sum(0)
             H_sys *= self.dt
             expmap = self.TISE_U = expm(-1j*( H_sys + H_ctrl + H_ctrl.T.conj() ))@self.TISE_U
         
@@ -178,6 +181,7 @@ class TransmonDuffingSimulator(object):
         return np.array(expmap)
     
     def reset(self):
+        self.H_ctrl_dt = 0
         self.TISE_U = np.eye(self.num_level**self.num_transmon)
         self.TDSE_U = qt.qeye(self.num_level**self.num_transmon)   
         if self.ctrl_noise and self.ctrl_update_freq == 'everyepisode': self.ctrl_update()

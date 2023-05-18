@@ -99,7 +99,8 @@ if __name__ == "__main__":
             min_sample_timesteps_per_iteration = args.stepsperiter
         )
         config = config.rollouts(
-            num_rollout_workers = args.numworkers
+            num_rollout_workers = args.numworkers,
+            recreate_failed_workers = True,
         )
         config = config.resources(
             num_gpus = args.numgpus
