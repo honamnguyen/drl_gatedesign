@@ -654,7 +654,7 @@ def get_saved_pqc(label):
         return [gateset_1q,gateset_2q]
     
     if 'simetal' in label:
-        gateseq = SimEtAl[node_type.split('_')[-1]]
+        gateseq = SimEtAl[label.split('_')[-1]]
     else:
         raise NotImplementedError(f'`{label}` circuit not found!')
     return gateseq, get_gateset(gateseq)
