@@ -1,7 +1,7 @@
 #####################################################################################
 ###################################### CORE SIM ######################################
 
-import numpy as np, itertools, scipy
+import numpy as np, itertools, scipy, glob, pickle
 from tqdm import tqdm
 
 try:
@@ -17,9 +17,9 @@ class PQC():
         self.num_qubits = params['num_qubits']
         self.N = 2**self.num_qubits
         self.gateset_1q, self.gateset_2q = params['gateset']
-        self.method = params['method'] if 'method' in params else 'standard'
+        self.method = params['method'] if 'method' in params else 'precalc'
         self.dtype = params['dtype'] if 'dtype' in params else 'complex64'
-        self.special_type = params['special_type'] if 'special_type' in params else False
+        self.special_type = params['special_type'] if 'special_type' in params else None
         
         # Set up gateset, 1q gate is its own class, 2q gate is split to control and target
         self.gatelist = []
@@ -646,7 +646,7 @@ def get_gate_combinations(num_qubits, gateset_1q, gateset_2q, gatedict, special_
     assert len(np.unique(list(gate_combinations.keys()))) == len(list(gate_combinations.keys()))
     return gate_combinations
 
-def get_saved_pqc(label):
+def get_saved_pqc(label, ray_path=None):
     
     def get_gateset(gateseq):
         gateset_1q = list(set([key[0] for key in gateseq if 'C' not in key[0]]))
@@ -655,6 +655,15 @@ def get_saved_pqc(label):
     
     if 'simetal' in label:
         gateseq = SimEtAl[label.split('_')[-1]]
+        
+    elif 'run' in label:
+        run, str1, str2 = label.split('_')
+        run = run.replace('run','')
+        files = glob.glob(f'{ray_path}/*{run}*/all.pkl')
+        assert len(files) == 1
+        data = pickle.load(open(files[0], 'rb'))
+        gateseq = data['gateseqs'][data['labels'].index('_'.join([str1,str2]))]
+        
     else:
         raise NotImplementedError(f'`{label}` circuit not found!')
     return gateseq, get_gateset(gateseq)
