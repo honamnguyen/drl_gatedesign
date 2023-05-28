@@ -325,6 +325,13 @@ class PQC():
         kls = np.array(kls)
         return kls.mean(), kls.std()
     
+    def expressibility_minmeanmax(self, shots, num_bins, trials=5):
+        kls = []
+        for _ in range(trials):
+            kls.append(self.expressibility(shots, num_bins)[0])
+        kls = np.array(kls)
+        return kls.min(), kls.mean(), kls.max()
+    
     def entanglement_capability(self, shots=5000, measure='meyer_wallach', input_kets=[]):
         if len(input_kets):
             kets = input_kets

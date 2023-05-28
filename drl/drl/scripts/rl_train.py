@@ -101,6 +101,7 @@ if __name__ == "__main__":
         config = config.rollouts(
             num_rollout_workers = args.numworkers,
             recreate_failed_workers = True,
+            restart_failed_sub_environments=True,
         )
         config = config.resources(
             num_gpus = args.numgpus
