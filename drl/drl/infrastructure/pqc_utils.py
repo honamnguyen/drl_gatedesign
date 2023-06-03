@@ -33,6 +33,7 @@ def parser_init(parser):
     parser.add_argument('-kltarget',type=float,default=0,help='Target KL divergence. Default: 0')
     parser.add_argument('-klshots',type=int,default=20000,help='Shots used to estimate KL divergence. Default: 20000')
     parser.add_argument('-kltrials',type=int,default=5,help='Trials used to estimate KL divergence. Default: 5')
+    parser.add_argument('-klbins',type=int,default=75,help='Number of bins used to estimate KL divergence. Default: 75')
     parser.add_argument('-rlstate',default='2D',help='State type for RL agent. Default: 2D')
     parser.add_argument('-q2gates',default='CX',help='Two qubit entangeling gates. Default: CX')
     parser.add_argument('-q1gates',default='H_RX_RZ',help='Single qubit gates. Default: H_RX_RZ')
@@ -89,6 +90,7 @@ def get_kw(args):
     kl_target = args.kltarget
     kl_shots = args.klshots
     kl_trials = args.kltrials
+    kl_bins = args.klbins
 
     kw = {
         'rl_state': rl_state, # 2D
@@ -98,7 +100,7 @@ def get_kw(args):
             'depth_penalty': depth_penalty,
             'kl_shots': kl_shots,
             'kl_trials': kl_trials,
-            'num_bins': 75,
+            'num_bins': kl_bins,
             'kl_target': kl_target,
         },
         'sim_params': {
