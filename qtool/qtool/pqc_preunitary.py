@@ -35,7 +35,7 @@ class PQC():
             for qubits in itertools.permutations(range(self.num_qubits),2):
                 self.update_gateset(gate, list(qubits))
                 
-        if 'precalc' in self.method:
+        if self.method == 'precalc':
             self.precalc_init()
 
         self.reset()
@@ -181,72 +181,14 @@ class PQC():
         else:
             raise NotImplementedError
         
-    def _get_tensorprod_coeff(self, layer, thetas, kind='np'):
-        '''
-        Break a layer into lin comb of precalculated tensor products
-        args:
-            thetas: only the parameters for that layer
-        '''
-        param_i = 0
-        if kind == 'np':
-            prods = np.array([['NA']])
-            coeffs = np.array([[1]])
-            for gate_qubits in layer:
-                # break RX to I and X
-                if 'R' in gate_qubits:
-                    gate = gate_qubits[:-1]
-                    prods = np.hstack([np.vstack([prods,[gate_qubits.replace(gate,'I')]*prods.shape[1]]),
-                                        np.vstack([prods,[gate_qubits.replace('R','')]*prods.shape[1]])])
-                    coeffs = np.vstack([    np.cos(thetas[param_i]/2)*coeffs,
-                                        -1j*np.sin(thetas[param_i]/2)*coeffs])
-                    param_i += 1
-                else:
-                    prods = np.vstack([prods,[gate_qubits]*prods.shape[1]])
-            prods = prods[1:].T.tolist()
-            
-        elif kind == 'tf':
-            prods = np.array([['NA']])
-            coeffs = tf.constant([[1]],dtype=tf.complex64)
-            for gate_qubits in layer:
-                # break RX to I and X
-                if 'R' in gate_qubits:
-                    gate = gate_qubits[:-1]
-                    prods = np.hstack([np.vstack([prods,[gate_qubits.replace(gate,'I')]*prods.shape[1]]),
-                                        np.vstack([prods,[gate_qubits.replace('R','')]*prods.shape[1]])])
-                    coeffs = tf.concat([    tf.cos(thetas[param_i]/2)*coeffs,
-                                        -1j*tf.sin(thetas[param_i]/2)*coeffs],axis=0)             
-                    param_i += 1
-                else:
-                    prods = np.vstack([prods,[gate_qubits]*prods.shape[1]])
-            prods = prods[1:].T.tolist()
-            
-        return prods, coeffs, param_i
     
-    def _evolve(self, prods, coeffs, ket0=None, U0=None):
-        '''Evolve ket or unitary'''
-        ket = U = 0
-        for i in range(len(prods)):
-            prod = [gate for gate in prods[i] if 'I' not in gate]
-            prod.sort()
-            if ket0 is not None:
-                # ket += np.einsum('b,ij,bj->bi',coeffs[i],U,ket0)
-                # ket += coeffs[i][:,None]*ket0.dot(U.T)
-                ket += np.multiply(coeffs[i][:,None],ket0).dot(self.gate_combinations['_'.join(prod)].T)
-            else:
-                U += coeffs[i][:,None,None]*self.gate_combinations['_'.join(prod)]
-        if ket0 is not None:
-            self.ket = ket
-            return self.ket
-        else:
-            self.U = np.einsum('ijk,ikl->ijl',U,U0) #U.dot(U0)
-            return self.U
-        
     def sample(self, shots=5000, override_thetas=[]):
         self.thetas = thetas = override_thetas if len(override_thetas) else np.random.uniform(0, 2*np.pi, size=[self.num_params, shots])
 
         ### evolution with a batch of sample ###
+        param_i = 0
+        
         if 'standard' in self.method:
-            param_i = 0
             ket0 = np.eye(self.N)[0][None]
             for i in range(len(self.fixed_Us)):
                 # ket0 = self.fixed_Us[i][None] @ ket0
@@ -285,25 +227,34 @@ class PQC():
             if self.special_type == 'tf':
                 return self.get_tf_unitaries(self.thetas).numpy().dot(np.eye(self.N)[0])
             
-            if 'unitary' in self.method:
-                param_start, U0 = 0, np.eye(self.N)[None]
-                for layer in self.layers:
-                    prods, coeffs, param_count = self._get_tensorprod_coeff(layer, thetas[param_start:])
-                    param_start += param_count
-                    U0 = self._evolve(prods, coeffs, U0=U0)
-                self.ket = self.U.dot(np.eye(self.N)[0])
-                return self.ket               
-            else:
-                # ket0 = np.repeat(np.eye(self.N)[0][None],shots,0)
-                param_start, ket0 = 0, np.eye(self.N)[0]
-                for layer in self.layers:
-                    prods, coeffs, param_count = self._get_tensorprod_coeff(layer, thetas[param_start:])
-                    param_start += param_count
-                    # print(np.array(prods))
-                    # print(thetas.round(2))
-                    # print(coeffs.round(2))
-                    ket0 = self._evolve(prods, coeffs, ket0=ket0)
-                return self.ket
+            ket0 = np.repeat(np.eye(self.N)[0][None],shots,0)
+            ket = 0
+            for layer in self.layers:
+                prods = np.array([['NA']])
+                coeffs = np.array([[1]])
+                for gate_qubits in layer:
+                    # break RX to I and X
+                    if 'R' in gate_qubits:
+                        gate = gate_qubits[:-1]
+                        prods = np.hstack([np.vstack([prods,[gate_qubits.replace(gate,'I')]*prods.shape[1]]),
+                                            np.vstack([prods,[gate_qubits.replace('R','')]*prods.shape[1]])])
+                        coeffs = np.vstack([    np.cos(thetas[param_i]/2)*coeffs,
+                                            -1j*np.sin(thetas[param_i]/2)*coeffs])
+                        param_i += 1
+                    else:
+                        prods = np.vstack([prods,[gate_qubits]*prods.shape[1]])
+                prods = prods[1:].T.tolist()
+
+                #loop over all terms with the appropriate coefficients
+                for i in range(len(prods)):
+                    prod = [gate for gate in prods[i] if 'I' not in gate]
+                    prod.sort()
+                    U = self.gate_combinations['_'.join(prod)]
+                    # ket += np.einsum('b,ij,bj->bi',coeffs[i],U,ket0)
+                    # ket += coeffs[i][:,None]*ket0.dot(U.T)
+                    ket += np.multiply(coeffs[i][:,None],ket0).dot(U.T)
+                ket0 = ket.copy()
+                ket = 0
                     
                 # Us = np.array([self.gate_combinations['_'.join([gate for gate in prod if 'I' not in gate])] for prod in prods])
                 # # ket0 = np.einsum('ab,aij,bj->bi',coeffs,Us,ket0)
@@ -321,13 +272,27 @@ class PQC():
             thetas = tf.cast(thetas, tf.complex64)
         if thetas.shape[0] != self.num_params:
             thetas = tf.transpose(thetas)
+        param_i = 0
         
         if 'precalc' in self.method:
             U0 = tf.repeat(tf.eye(self.N,dtype=tf.complex64)[None],thetas.shape[1],0)
-            U, param_start = 0, 0
+            U = 0
             for layer in self.layers:
-                prods, coeffs, param_count = self._get_tensorprod_coeff(layer, thetas[param_start:], kind='tf')
-                param_start += param_count
+                prods = np.array([['NA']])
+                coeffs = tf.constant([[1]],dtype=tf.complex64)
+                for gate_qubits in layer:
+                    # break RX to I and X
+                    if 'R' in gate_qubits:
+                        gate = gate_qubits[:-1]
+                        prods = np.hstack([np.vstack([prods,[gate_qubits.replace(gate,'I')]*prods.shape[1]]),
+                                            np.vstack([prods,[gate_qubits.replace('R','')]*prods.shape[1]])])
+                        coeffs = tf.concat([    tf.cos(thetas[param_i]/2)*coeffs,
+                                            -1j*tf.sin(thetas[param_i]/2)*coeffs],axis=0)             
+                        param_i += 1
+                    else:
+                        prods = np.vstack([prods,[gate_qubits]*prods.shape[1]])
+                prods = prods[1:].T.tolist()
+
                 #loop over all terms with the appropriate coefficients
                 for i in range(len(prods)):
                     prod = [gate for gate in prods[i] if 'I' not in gate]
@@ -352,7 +317,14 @@ class PQC():
             # return kl_divergence(p_PQC,p_Haar), p_PQC, p_Haar
             log_p_Haar = log_pdf_Haar_binned(bins[:-1],bins[1:],self.N)
             return kl_divergence_logq(p_PQC,log_p_Haar), p_PQC, log_p_Haar
-        
+
+    def expressibility_stat(self, shots, num_bins, trials=5):
+        kls = []
+        for _ in range(trials):
+            kls.append(self.expressibility(shots, num_bins)[0])
+        kls = np.array(kls)
+        return kls.mean(), kls.std()
+    
     def expressibilities(self, shots, num_bins, trials=5):
         kls = []
         for _ in range(trials):
@@ -366,32 +338,17 @@ class PQC():
             kls.append(self.expressibility(shots, num_bins)[0])
         kls = np.array(kls)
         return kls.min(), kls.mean(), kls.max()
-
-    def expressibility_stat(self, shots, num_bins, trials=5):
-        kls = []
-        for _ in range(trials):
-            kls.append(self.expressibility(shots, num_bins)[0])
-        kls = np.array(kls)
-        return kls.mean(), kls.std()
-    
-    def expressibility_minmeanmax(self, shots, num_bins, trials=5):
-        kls = []
-        for _ in range(trials):
-            kls.append(self.expressibility(shots, num_bins)[0])
-        kls = np.array(kls)
-        return kls.min(), kls.mean(), kls.max()
     
     def entanglement_capability(self, shots=5000, measure='meyer_wallach', input_kets=[]):
         if len(input_kets):
             kets = input_kets
         else:
-            # kets = self.kets.copy() if len(self.kets) else self.sample(shots)
-            kets = self.sample(shots)
+            kets = self.kets.copy() if len(self.kets) else self.sample(shots)
         if measure == 'meyer_wallach':
-            avg_purity = np.array([purity(partial_trace(kets,[i])) for i in range(self.num_qubits)])
-            assert abs(avg_purity.imag).max() < 1e-10
-            return (2*(1 - avg_purity.real)).mean()
-            
+            avg_purity = np.array([purity(partial_trace(kets,[i])) for i in range(self.num_qubits)]).mean()
+            Q = 2*(1 - avg_purity)
+            assert abs(Q.imag) < 1e-10
+            return Q.real
     
     @property
     def depth(self):
@@ -425,9 +382,6 @@ def Rotation(theta, axis):
 def fidelity(states1, states2):
     overlap = np.einsum('ij,ij->i',states1,states2.conj())
     return overlap.real**2 + overlap.imag**2
-
-def frame_potential_haar(t,N):
-    return np.math.factorial(t)*np.math.factorial(N-1)/np.math.factorial(t+N-1)
 
 def pdf_Haar(F, N):
     return (N-1)*(1-F)**(N-2)
@@ -482,62 +436,6 @@ def haar_expressibility(N,shots,num_bins):
     # p_Haar = pdf_Haar(midpoints,N)/(num_bins-1)
     p_Haar = pdf_Haar_binned(bins[:-1],bins[1:],N)
     return kl_divergence(p_PQC,p_Haar)
-
-def sample_generic(N, shots, dist, num_rm_params=0):
-    num_params = N**2 - num_rm_params
-    if dist[0] == 'normal':
-        # mean,std = dist[1:]
-        # thetas = np.random.normal(mean,std,[shots,num_params])
-        thetas = np.random.normal(*dist[1:],[shots,num_params])
-    elif dist[0] == 'uniform':
-        thetas = np.random.uniform(*dist[1:],[shots,num_params])
-        
-    locs = np.hstack([np.arange(num_params),np.random.randint(num_params,size=num_rm_params)])
-    np.random.shuffle(locs)
-    thetas = thetas[:,locs]
-    
-    num_off_diags = int(0.5 * (N**2 - N))
-    real_off_params = thetas[:,:num_off_diags]
-    imag_off_params = thetas[:,num_off_diags:2 * num_off_diags]
-    diag_params = thetas[:,2 * num_off_diags:]
-
-    herm_mat = np.array([np.diag(diag_param) for diag_param in diag_params]).astype(np.complex128)
-    count = 0
-    for i in range(N):
-        for j in range(i+1,N):
-            herm_mat[:,i,j] = real_off_params[:,count] + 1j*imag_off_params[:,count]
-            herm_mat[:,j,i] = real_off_params[:,count] - 1j*imag_off_params[:,count]
-            count += 1
-    unitary_mat = scipy.linalg.expm(1j*herm_mat)
-    # print(abs(np.transpose(unitary_mat,[0,2,1]).conj()@unitary_mat - np.eye(N)).max())
-    # print(abs(unitary_mat@np.transpose(unitary_mat,[0,2,1]).conj() - np.eye(N)).max())
-    return unitary_mat
-
-def generic_expressibility(N,shots,num_bins,test_log_Haar=False,dist=['normal',0,1],generic_unitaries=None,seed=0,ket0=None):
-    bins = np.linspace(0,1,num_bins)
-    midpoints = (bins[1:]+bins[:-1])/2
-    if generic_unitaries is None:
-        generic_unitaries = sample_generic(N,2*shots,dist)
-    else:
-        np.random.seed(seed)
-        locs = np.arange(len(generic_unitaries))
-        np.random.shuffle(locs)
-        generic_unitaries = generic_unitaries[locs[:2*shots]]
-    if ket0 is not None:
-        kets = (generic_unitaries@ket0).reshape(2,shots,N)
-    else:
-        kets = (generic_unitaries@np.eye(N)[0]).reshape(2,shots,N)    
-    counts, _ = np.histogram(fidelity(kets[0],kets[1]),bins=bins)
-    p_PQC = counts/shots
-    
-    p_Haar = pdf_Haar_binned(bins[:-1],bins[1:],N)
-    kl = kl_divergence(p_PQC,p_Haar)
-    
-    if test_log_Haar:
-        log_p_Haar = log_pdf_Haar_binned(bins[:-1],bins[1:],N)
-        print('Diff from log_Haar method:',abs(kl-kl_divergence_logq(p_PQC,log_p_Haar)).max())  
-    
-    return kl
 
 ### FOR ENTANGLEMENT CAPACITY ###
 def partial_trace(state_vector, indices, num_level=2, test=False):
@@ -952,20 +850,14 @@ try:
 except:
     print('Qiskit not found. PQC_Qiskit class is not available.')
 
-def test_PQC(pqc, circuits):
-    for circuit in circuits:
-        pqc.reset()
-        for gate_qubits in circuit:
-            pqc.append(*gate_qubits)
-        pqc.test_sample_qiskit()
-        
 if __name__ == '__main__':
     
     num_qubits = 4
     num_bins = 75
     shots = 20000
-    gateset = [['H','RX','RZ','RY'],['CZ','CX']]
+    gateset = [['H','RX','RZ','RY'],['CZ']]
 
+    print('\n---Test precalc numpy PQC---')
     params = {
         'num_qubits': num_qubits,
         'gateset': gateset,
@@ -974,20 +866,11 @@ if __name__ == '__main__':
         'special_type': None,
     }
     pqc = PQC(params)
-    circuits = [SimEtAl['9'],SimEtAl['9']*3,SimEtAl['2'],SimEtAl['2']*3]
+    pqc.reset()
+    for gate_qubits in SimEtAl['9']:
+        pqc.append(*gate_qubits)
+    pqc.test_sample_qiskit()
     
-    print('\n---Test standard numpy PQC---')
-    pqc.method = 'standard'
-    test_PQC(pqc, circuits)
-    
-    print('\n---Test precalc numpy PQC---')
-    pqc.method = 'precalc'
-    test_PQC(pqc, circuits)
-
-    print('\n---Test precalc_unitary numpy PQC---')
-    pqc.method = 'precalc_unitary'
-    test_PQC(pqc, circuits)
-
     print('\n---Test precalc tensorflow PQC---')
     params = {
         'num_qubits': num_qubits,
@@ -997,5 +880,8 @@ if __name__ == '__main__':
         'special_type': 'tf',
     }
     pqc = PQC(params)
-    test_PQC(pqc, circuits)
+    pqc.reset()
+    for gate_qubits in SimEtAl['9']:
+        pqc.append(*gate_qubits)
+    pqc.test_sample_qiskit()
     # print(pqc.get_tf_unitaries(tf.random.uniform([4, shots],0, 2*np.pi)))

@@ -84,7 +84,6 @@ if __name__ == '__main__':
                 env_config['qsim_params']['ctrl'][param] = val
             data[param]['values'].append(val)
             env.sim.reset_ctrl(env_config['qsim_params'])
-            # env = transmon_env_creator(env_config)
 
             obs = env.reset()
             done = False

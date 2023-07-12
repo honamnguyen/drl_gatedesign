@@ -74,7 +74,7 @@ def qubit_subspace(num_level,num_transmon):
     all_indices = np.array(list(product(range(num_level),repeat=num_transmon))) 
     qubit_indices = np.where(all_indices.max(1)<=1)[0]
     qubit_proj = np.diag((all_indices.max(1)<=1).astype(int))
-    return qubit_indices, np.ix_(qubit_indices,qubit_indices),qubit_proj
+    return qubit_indices, np.ix_(qubit_indices,qubit_indices), qubit_proj
 
 def kets2vecs_optimized(kets,basis):
     vecs = kets.conj()@basis@kets
@@ -343,6 +343,11 @@ def Zgate_on_all(thetas,num_level=2):
     qubit_indices,_ = qubit_subspace(num_level,len(thetas))
     Zs[qubit_indices] = tensor(Z_list)
     return Zs
+
+def get_trace(operator, pauli):
+    rate = np.trace(operator@pauli)
+    assert rate.imag < 1e-10
+    return rate.real
 
 #------------------------------------- Gate fidelity -------------------------------------#
 

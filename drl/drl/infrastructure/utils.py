@@ -26,7 +26,7 @@ def parser_init(parser):
     parser.add_argument('-numtransmon',type=int,default=2,help='Number of transmons. Default: 2')
     parser.add_argument('-numlevel',type=int,default=3,help='Number of level in Duffing oscillator. Default: 3')
     parser.add_argument('-numseg',type=int,default=20,help='Number of PWC segments (for IBM backend, need to be a divisor of duration). Default: 20')
-    parser.add_argument('-duration',type=float,default=250,help='Pulse max duration in nanoseconds (for IBM backend, needs to be multiple of 16*dt). Default: 250ns')
+    parser.add_argument('-duration',type=float,default=1120,help='Pulse duration in dt. Default: 1120 which is about 248.0ns for dt=2/0=9')
     parser.add_argument('-targetgate',default='sqrtZX',help='Target gate to be learned. Default: sqrtZX')
     
     parser.add_argument('-IBMbackend',default=None,help='IBM backend to get hamitonian variables. Default: None')
@@ -46,7 +46,7 @@ def parser_init(parser):
     parser.add_argument('-fidthreshold',type=float,default=0.999,help='Fidelity threshold to terminate pulse. Default: 0.999')
     parser.add_argument('-worstfidmethod',default='SLSQP-ket-7',help='Method to calculate worst fidelity. Default: SLSQP-ket-7')
     parser.add_argument('-channels',default='12',help='Pulse channels that agent controls. Default: 12-> u01,d1')
-    parser.add_argument('-subactionscale',type=float,default=0.05,help='Scale of relative change in pulse. -1 means no sub action. Default: 0.05.')
+    parser.add_argument('-subactionscale',type=float,default=0.1,help='Scale of relative change in pulse. -1 means no sub action. Default: 0.1.')
     parser.add_argument('-endampwindow',type=float,default=None,help='End amplitude window, reward=0 if outside. Default: None')
     parser.add_argument('-rlstate',default='ket',help='Quantum state representation as input for RL agent. Default: ket')
     parser.add_argument('-evolvemethod',default='TDSE',help='Time-dependent or independent evolution. Default: TDSE')

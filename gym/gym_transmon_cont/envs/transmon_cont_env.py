@@ -39,13 +39,18 @@ class ContinuousTransmonEnv(gym.Env):
             self.target_ket = self.target_unitary@self.init_ket
         
         # additional information for rl_state
-        self.rl_state_len = len(self.rl_state.split('_'))
-        if self.rl_state_len == 3:
-            # eg: ket_anharm_0
-            _, self.param, self.index = self.rl_state.split('_')
-        elif self.rl_state_len == 2 and 'ctrl' not in self.rl_state:
-            # eg: ket_anharm
-            _, self.param = self.rl_state.split('_')
+        # self.rl_state_len = len(self.rl_state.split('_'))
+        # if self.rl_state_len == 3:
+        #     # eg: ket_anharm_0
+        #     _, self.param, self.index = self.rl_state.split('_')
+        # elif self.rl_state_len == 2 and 'ctrl' not in self.rl_state:
+        #     # eg: ket_anharm
+        #     _, self.param = self.rl_state.split('_')
+        
+        # eg: ket_detune0_anharm_drive2
+        # eg: ket_all
+        self.context_params = ['drive','detune','anharm','coupling'] if 'all' in self.rl_state else self.rl_state.split('_')[1:] # noisy param
+
             
         # 'concat' observation space for old runs before changing to dict
         if 'concat' in self.rl_state:
@@ -56,19 +61,25 @@ class ContinuousTransmonEnv(gym.Env):
                 'quantum_state': spaces.Box(-1,1,[len(state['quantum_state'])]),
                 'prev_action': spaces.Box(-1,1,[len(state['prev_action'])]),
             }
-            if 'ctrl' in self.rl_state:
-                obs_space_dict['drive'] = spaces.Box(-1,1,[len(state['drive'])])
-                obs_space_dict['detune'] = spaces.Box(-1,1,[len(state['detune'])])
-                obs_space_dict['anharm'] = spaces.Box(-1,1,[len(state['anharm'])])
-                obs_space_dict['coupling'] = spaces.Box(-1,1,[len(state['coupling'])])
+            if 'all' in self.rl_state:
+                val = 1/self.sim.ctrl_noise
+                obs_space_dict['drive'] = spaces.Box(-val,val,[len(state['drive'])])
+                obs_space_dict['detune'] = spaces.Box(-val,val,[len(state['detune'])])
+                obs_space_dict['anharm'] = spaces.Box(-val,val,[len(state['anharm'])])
+                obs_space_dict['coupling'] = spaces.Box(-val,val,[len(state['coupling'])])
                 
-            elif self.rl_state_len == 3:
-                _, self.param, self.index = self.rl_state.split('_')
-                obs_space_dict[self.param+self.index] = spaces.Box(-1,1,[1])
+            elif len(self.context_params) > 0:
+                val = 1/self.sim.ctrl_noise
+                for param in self.context_params:
+                    obs_space_dict[param] = spaces.Box(-val,val,[len(self.sim.current_variation[param])])
                 
-            elif self.rl_state_len == 2:
-                _, self.param = self.rl_state.split('_')
-                obs_space_dict[self.param] = spaces.Box(-1,1,[len(state[self.param])])
+#             elif self.rl_state_len == 3:
+#                 _, self.param, self.index = self.rl_state.split('_')
+#                 obs_space_dict[self.param+self.index] = spaces.Box(-1,1,[1])
+                
+#             elif self.rl_state_len == 2:
+#                 _, self.param = self.rl_state.split('_')
+#                 obs_space_dict[self.param] = spaces.Box(-1,1,[len(state[self.param])])
 
             self.observation_space = spaces.Dict(obs_space_dict)
         print(f'\n{self.observation_space}\n')
@@ -97,7 +108,7 @@ class ContinuousTransmonEnv(gym.Env):
             
         self.state = expmap_super@self.init_state #@self.state
         self.map_super = expmap_super #@self.map_super
-        self.leakage = compute_leakage(self)
+        self.leakage = compute_leakage(self) if self.sim.num_level > 2 else [0,0]
         if 'ket' in self.rl_state:
             self.ket = expmap@self.init_ket #@self.ket
             self.map = expmap #@self.map
@@ -203,36 +214,38 @@ class ContinuousTransmonEnv(gym.Env):
     def render(self, mode='human'):
         return 0
     
-    def _add_ctrl_to_state(self, param, state):
-        if param == 'detune':
-            nonzero_ind = abs(self.sim.ctrl[param])>1e-10
-            state[param] = self.sim.current_ctrl[param][nonzero_ind]/self.sim.ctrl[param][nonzero_ind] - 1
-        else:
-            state[param] = self.sim.current_ctrl[param]/self.sim.ctrl[param] - 1  
-        return state
+    # def _add_ctrl_to_state(self, param, state):
+    #     if param == 'detune':
+    #         nonzero_ind = abs(self.sim.ctrl[param])>1e-10
+    #         state[param] = self.sim.current_ctrl[param][nonzero_ind]/self.sim.ctrl[param][nonzero_ind] - 1
+    #     else:
+    #         state[param] = self.sim.current_ctrl[param]/self.sim.ctrl[param] - 1  
+    #     return state
     
     def get_state_dict(self):
+        '''
+        Noisy control:
+        - sim.ctrl_noise: variation range to train on (eg. 5%)
+        - state added to rl_state is normalized to [-1,1] (eg. rl_state=[-1,1] ~ ctrl=[-0.05,0.05])
+        - gym_spaces range corresponds to variation of 100% (eg. rl_state_range=[-20,20])
+        '''
         state = {
             'quantum_state': self.get_quantum_state(self.rl_state),
             'prev_action': self.prev_action,
         }
-        if 'ctrl' in self.rl_state:
-            for param in ['drive','detune','anharm','coupling']:
-                state = self._add_ctrl_to_state(param, state)
-            # for key,val in self.sim.current_ctrl.items():
-            #     if key == 'freq':
-            #         continue
-            #     elif key == 'detune':
-            #         nonzero_ind = abs(self.sim.ctrl[key])>1e-10
-            #         state[key] = val[nonzero_ind]/self.sim.ctrl[key][nonzero_ind] - 1
-            #     else:
-            #         state[key] = val/self.sim.ctrl[key] - 1
-        elif self.rl_state_len == 3:
-            current = self.sim.current_ctrl[self.param][[int(self.index)]]
-            fiducial = self.sim.ctrl[self.param][[int(self.index)]]
-            state[self.param+self.index] = current/fiducial - 1 
-        elif self.rl_state_len == 2:
-            state = self._add_ctrl_to_state(self.param, state)
+        if len(self.context_params) > 0:
+            for param in self.context_params:
+                state[param] = self.sim.current_variation[param]/self.sim.ctrl_noise
+                
+        # if 'all' in self.rl_state:
+        #     for param in ['drive','detune','anharm','coupling']:
+        #         state = self._add_ctrl_to_state(param, state)                    
+        # elif self.rl_state_len == 3:
+        #     current = self.sim.current_ctrl[self.param][[int(self.index)]]
+        #     fiducial = self.sim.ctrl[self.param][[int(self.index)]]
+        #     state[self.param+self.index] = current/fiducial - 1 
+        # elif self.rl_state_len == 2:
+        #     state = self._add_ctrl_to_state(self.param, state)
 
         return state
         
