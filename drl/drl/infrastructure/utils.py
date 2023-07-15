@@ -1,5 +1,5 @@
-import argparse, json
-from gym_utils import *
+import argparse, json, numpy as np
+from qtool.utility import get_reduced_basis, get_ket_basis, qubit_subspace, common_gate
 
 def write_dict_to_file(name,d):
     f = open(name+'.txt', 'w')
@@ -49,6 +49,7 @@ def parser_init(parser):
     parser.add_argument('-subactionscale',type=float,default=0.1,help='Scale of relative change in pulse. -1 means no sub action. Default: 0.1.')
     parser.add_argument('-endampwindow',type=float,default=None,help='End amplitude window, reward=0 if outside. Default: None')
     parser.add_argument('-rlstate',default='ket',help='Quantum state representation as input for RL agent. Default: ket')
+    parser.add_argument('-normalizedcontext',default=False,action='store_true',help='Normalized context variable to [-1,1]. Default: False')
     parser.add_argument('-evolvemethod',default='TDSE',help='Time-dependent or independent evolution. Default: TDSE')
     
     # networks
@@ -84,17 +85,16 @@ def parser_init(parser):
 
 def transmon_kw(args):
     
+    ### Get params from argparse ###
     # objective
     num_seg = args.numseg
     duration = args.duration
     target_gate = args.targetgate
 
-    
     rsdict = {'f':'only-final-step-','l':'local-fidelity-difference-'}    
     # physical setting
     num_transmon = args.numtransmon
     num_level = args.numlevel
-    sim_frame_rotation = False
     
     if args.IBMbackend:
         with open(f'../../../data/hamiltonian_vars_{args.IBMbackend}.json', 'r') as f:
@@ -125,8 +125,6 @@ def transmon_kw(args):
         
         dt = duration/num_seg*nanosec
 
-        
-
     ctrl = {
         'drive': drive,
         'detune': detune,
@@ -134,32 +132,70 @@ def transmon_kw(args):
         'coupling': coupling,
         'freq': freq,
     }
-    ctrl_noise = args.ctrlnoise
-    ctrl_noise_param = args.ctrlnoiseparam
-    ctrl_update_freq = args.ctrlupdatefreq
-
+    
+    
+    ### Collect everything into kw ###
+    kw = {}
+    kw['qsim_params'] = {'num_transmon': num_transmon,
+                         'num_level': num_level,
+                         'sim_frame_rotation': False,
+                         'dt':dt,
+                         'ctrl': ctrl,
+                         'ctrl_noise': args.ctrlnoise,
+                         'ctrl_noise_param': args.ctrlnoiseparam,
+                         'ctrl_update_freq': args.ctrlupdatefreq,
+                         }
+    kw['sim_name'] = 'TransmonDuffingSimulator'
     # state
-    rl_state = args.rlstate
-    pca_order = (4,2)
+    kw['rl_state'] = args.rlstate
+    kw['pca_order'] = (4,2)
+    kw['normalized_context'] = args.normalizedcontext
 
-    # reward
-    reward_type = args.rewardtype
-    reward_scheme = rsdict[args.rewardscheme[0]]+args.rewardscheme[1:]
-    fid_threshold = args.fidthreshold
-    worstfid_method = args.worstfidmethod #has nothing to do with the state
+    # Track evolution of basis elements
+    dm_basis = get_reduced_basis(num_level,num_transmon)
+    _,qubit_indices,qubit_proj = qubit_subspace(num_level,num_transmon)
+    basis_size = len(dm_basis)
 
-    # action
-    channels = [int(c) for c in args.channels]
-    sub_action_scale = None if int(args.subactionscale)==-1 else args.subactionscale 
-    end_amp_window = args.endampwindow
-    evolve_method = args.evolvemethod
-
-    kw = initialize_transmon_env('TransmonDuffingSimulator', num_transmon, num_level, 
-                                 sim_frame_rotation, ctrl, ctrl_noise, ctrl_noise_param, ctrl_update_freq,
-                                 num_seg, dt, target_gate,
-                                 rl_state, pca_order,
-                                 reward_type, reward_scheme, fid_threshold, worstfid_method,
-                                 channels, sub_action_scale, end_amp_window, evolve_method)
+    gate = common_gate(target_gate)
+    if num_level == 2:
+        target_unitary = gate
+    elif num_level == 3:
+        target_unitary = np.eye(num_level**num_transmon,dtype=np.complex128)
+        target_unitary[qubit_indices] = gate
+    
+    kw['init_state'] = (dm_basis).reshape([basis_size,-1]).T
+    kw['target_unitary'] = target_unitary
+    kw['qubit_indices'] = qubit_indices
+    
+    # Keep ket
+    kw['init_ket'] = get_ket_basis(num_level,num_transmon).T if 'ket' in kw['rl_state'] else None
+    
+    # Continuous actions
+    kw['channels'] = [int(c) for c in args.channels]
+    kw['sub_action_scale'] = None if int(args.subactionscale)==-1 else args.subactionscale 
+    kw['end_amp_window'] = args.endampwindow
+    
+        
+    kw['step_params'] = {
+        'evolve_method': args.evolvemethod,
+        'max_step': num_seg,
+        'fid_threshold': args.fidthreshold,
+        'neg_reward_scale': 0,
+        'reward_scheme': rsdict[args.rewardscheme[0]]+args.rewardscheme[1:],
+        'reward_type': args.rewardtype,
+        'worstfid_method': args.worstfidmethod #has nothing to do with the state
+    }
+    
+    #############
+    
+#     kw = initialize_transmon_env('TransmonDuffingSimulator', num_transmon, num_level, 
+#                                  sim_frame_rotation, ctrl, ctrl_noise, ctrl_noise_param, ctrl_update_freq,
+#                                  num_seg, dt, target_gate,
+#                                  rl_state, pca_order,
+#                                  reward_type, reward_scheme, fid_threshold, worstfid_method,
+#                                  channels, sub_action_scale, end_amp_window, evolve_method)
+    
+    
     
     return kw
     

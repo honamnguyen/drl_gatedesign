@@ -23,6 +23,8 @@ if __name__ == '__main__':
     parser.add_argument('-ctrlnoise',type=float,default=1e-2,help='Noisy control variance in %. Default: 1e-2')
     parser.add_argument('-ctrlnoiseparam',default='detune_anharm',help='Noisy control parameters. Default: detune_anharm')
     parser.add_argument('-concat',action=argparse.BooleanOptionalAction,help='Add concat to rl_state for runs before dict obs space. Default: None')
+    parser.add_argument('-normalizedcontext',action=argparse.BooleanOptionalAction,help='Normalize context variable for run before July 2023.')
+
     args = parser.parse_args()
 
     ### ----- LOAD CONFIG + UPDATE----- ###
@@ -33,74 +35,102 @@ if __name__ == '__main__':
     config['logger_config'] = {'type': 'ray.tune.logger.NoopLogger'}
     
     # update env config appropriately
+    if config['env_config']['rl_state'] == 'ket_detune_0':
+        config['env_config']['rl_state'] = 'ket_detune0'
+    if config['env_config']['qsim_params']['ctrl_noise'] == 0:
+        config['env_config']['qsim_params']['ctrl_noise'] = args.ctrlnoise # for runs trained on fixed env
+        
     config['env_config']['step_params']['reward_scheme'] = 'local-fidelity-difference-nli'
     config['env_config']['step_params']['reward_type'] =  'worst'
-    config['env_config']['qsim_params']['ctrl_noise'] = 0
+    config['env_config']['qsim_params']['ctrl_noise_param'] = args.ctrlnoiseparam
     config['env_config']['qsim_params']['ctrl_update_freq'] = 'everyepisode'
-    config['env_config']['qsim_params']['ctrl_noise_param'] = 'all'
+    
+    # Backwards compatibility
     if args.concat: 
         config['env_config']['rl_state'] += '_concat'
+    if args.normalizedcontext:
+        config['env_config']['normalized_context'] = True
+
+        
     ind = np.array(config['env_config']['channels'])
     channels = np.array(['d0','u01','d1','u10'])[ind]
     run = config_file.replace('/params.pkl','')
     
-    # Recover checkpoint
-    checkpoints = glob.glob(f'{run}/checkpoint*{args.chpt}')
-    print(checkpoints)
-    assert len(checkpoints) == 1
-    checkpoint = checkpoints[0]
-    agent = DDPG(config=config)
-    agent.restore(checkpoint)   
-
-    data = {}
-    # param = 'anharm' #'coupling'
-    # params = ['detune0'] #'drive_detune_anharm_coupling'
-    params = args.ctrlnoiseparam.split('_')
-    start = time.time()
     env = transmon_env_creator(config['env_config'])
-    for param in params: 
-        data[param] = {
-            'values': [],
-            'avg_fids': [],
-            'worst_fids': [],
-            'pulses': []
-        }
+    
+    data_temp = {
+        'variations': np.linspace(-args.ctrlnoise,args.ctrlnoise,51),
+        'fiducials':{},
+        'avg_fids': [],
+        'worst_fids': [],
+        'pulses': []
+    }
+    params = args.ctrlnoiseparam.split('_')
+    for param in params:
         if param[-1].isdigit():
-            data[param]['fiducial'] = config['env_config']['qsim_params']['ctrl'][param[:-1]][int(param[-1])]
+            data_temp['fiducials'][param] = config['env_config']['qsim_params']['ctrl'][param[:-1]][int(param[-1])]
         else:
-            data[param]['fiducial'] = config['env_config']['qsim_params']['ctrl'][param]
-
-
-        print(f'\n Fiducial values for {param}:',data[param]['fiducial']/2/np.pi/1e6)
-        # Loop over variations in physical parameters
-        param_range = np.linspace(1-args.ctrlnoise,1+args.ctrlnoise,51)
-        for factor in param_range:
-            env_config = deepcopy(config['env_config'])
-            val = data[param]['fiducial']*factor
-            print('   ',val/2/np.pi/1e6)
-            if param[-1].isdigit():
-                env_config['qsim_params']['ctrl'][param[:-1]][int(param[-1])] = val
-            else:
-                env_config['qsim_params']['ctrl'][param] = val
-            data[param]['values'].append(val)
-            env.sim.reset_ctrl(env_config['qsim_params'])
-
-            obs = env.reset()
+            data_temp['fiducials'][param] = config['env_config']['qsim_params']['ctrl'][param]
+        print(f"\n Fiducial values for {param}: {data_temp['fiducials'][param]/2/np.pi/1e6:.3f} MHz")
+        
+    # Recover checkpoint
+    for chpt in args.chpt.split('_'):
+        start = time.time()
+        checkpoints = glob.glob(f'{run}/checkpoint*{chpt}')
+        print(checkpoints)
+        assert len(checkpoints) == 1
+        checkpoint = checkpoints[0]
+        agent = DDPG(config=config)
+        agent.restore(checkpoint)   
+        
+        data = deepcopy(data_temp)
+        for variation in data['variations']:
             done = False
+            obs = env.reset(variation={param:np.array([variation]) for param in params})
             pulse = []
             while not done:
                 action = agent.compute_single_action(obs)
                 obs, reward, done, _ = env.step(action)
                 pulse.append(env.prev_action.view(np.complex128))
-            data[param]['avg_fids'].append(env.avg_fid)
-            data[param]['worst_fids'].append(env.fid)
-            data[param]['pulses'].append(pulse)
-        data[param]['values'] = np.array(data[param]['values'])
-        data[param]['pulses'] = np.array(data[param]['pulses'])
-        data[param]['avg_fids'] = np.array(data[param]['avg_fids'])
-        data[param]['worst_fids'] = np.array(data[param]['worst_fids'])
-        data[param]['range'] = param_range
-        print('\n Fiducial value:',data[param]['fiducial'])
-        print(data[param]['avg_fids'])
-        pickle.dump(data, open(checkpoint.replace('checkpoint',f'RL_variation{args.ctrlnoise}_{"_".join(params)}')+'.pkl', 'wb') )
-    print(f'\n Took {time.time()-start:.3f} sec')
+            data['avg_fids'].append(env.avg_fid)
+            data['worst_fids'].append(env.fid)
+            data['pulses'].append(pulse)
+            print(f'var = {variation:.3f}, {env.avg_fid:.5f}')
+        data['pulses'] = np.array(data['pulses'])
+        data['avg_fids'] = np.array(data['avg_fids'])
+        data['worst_fids'] = np.array(data['worst_fids'])
+        print(data['avg_fids'])
+        pickle.dump(data, open(checkpoint.replace('checkpoint',f'RLGen_variation{args.ctrlnoise}_{"_".join(params)}')+'.pkl', 'wb') )
+        print(f'\n Took {time.time()-start:.3f} sec')
+
+        # param_range = np.linspace(1-args.ctrlnoise,1+args.ctrlnoise,51)
+        # for factor in param_range:
+        #     env_config = deepcopy(config['env_config'])
+        #     val = data[param]['fiducial']*factor
+        #     print('   ',val/2/np.pi/1e6)
+        #     if param[-1].isdigit():
+        #         env_config['qsim_params']['ctrl'][param[:-1]][int(param[-1])] = val
+        #     else:
+        #         env_config['qsim_params']['ctrl'][param] = val
+        #     data[param]['values'].append(val)
+        #     env.sim.reset_ctrl(env_config['qsim_params'])
+
+            # obs = env.reset()
+            # done = False
+            # pulse = []
+            # while not done:
+            #     action = agent.compute_single_action(obs)
+        #         obs, reward, done, _ = env.step(action)
+        #         pulse.append(env.prev_action.view(np.complex128))
+        #     data[param]['avg_fids'].append(env.avg_fid)
+        #     data[param]['worst_fids'].append(env.fid)
+        #     data[param]['pulses'].append(pulse)
+        # data[param]['values'] = np.array(data[param]['values'])
+        # data[param]['pulses'] = np.array(data[param]['pulses'])
+        # data[param]['avg_fids'] = np.array(data[param]['avg_fids'])
+        # data[param]['worst_fids'] = np.array(data[param]['worst_fids'])
+        # data[param]['range'] = param_range
+        # print('\n Fiducial value:',data[param]['fiducial'])
+        # print(data[param]['avg_fids'])
+        # pickle.dump(data, open(checkpoint.replace('checkpoint',f'RL_variation{args.ctrlnoise}_{"_".join(params)}')+'.pkl', 'wb') )
+    # print(f'\n Took {time.time()-start:.3f} sec')

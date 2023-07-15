@@ -78,7 +78,7 @@ class TransmonDuffingSimulator(object):
         for i in range(self.num_transmon):
             self.H_sys += detune[i]*n[i] + anharm[i]/2*( n[i] @ n[i] - n[i])
 
-    def ctrl_update(self):
+    def ctrl_update(self, variation={}):
         '''
         Update current control parameters with noise: 
         
@@ -90,7 +90,8 @@ class TransmonDuffingSimulator(object):
         for param in self.ctrl_noise_param:
             if param[-1].isdigit():
                 ind = int(param[-1])
-                self.current_variation[param] = np.random.uniform(-self.ctrl_noise,self.ctrl_noise,1)
+                self.current_variation[param] = variation[param] if param in variation \
+                                                else np.random.uniform(-self.ctrl_noise,self.ctrl_noise,1)
                 current_ctrl[param[:-1]][ind] = self.ctrl[param[:-1]][ind]*(1 + self.current_variation[param][0])
                 
                 # mean = self.ctrl[param[:-1]][int(param[-1])]
@@ -98,7 +99,8 @@ class TransmonDuffingSimulator(object):
                 # current_ctrl[param[:-1]][int(param[-1])] =  np.random.uniform(mean-noise_var,mean+noise_var)
                 # current_ctrl[param[:-1]][int(param[-1])] =  np.random.normal(mean,noise_var)    
             else:
-                self.current_variation[param] = np.random.uniform(-self.ctrl_noise,self.ctrl_noise,len(self.ctrl[param]))
+                self.current_variation[param] = variation[param] if param in variation \
+                                                else np.random.uniform(-self.ctrl_noise,self.ctrl_noise,len(self.ctrl[param]))
                 current_ctrl[param] = self.ctrl[param]*(1 + self.current_variation[param])
                 
                 # mean = self.ctrl[param]
@@ -191,12 +193,11 @@ class TransmonDuffingSimulator(object):
             
         return np.array(expmap)
     
-    def reset(self):
+    def reset(self,variation={}):
         self.H_ctrl_dt = 0
         self.TISE_U = np.eye(self.num_level**self.num_transmon)
         self.TDSE_U = qt.qeye(self.num_level**self.num_transmon)   
-        # if self.ctrl_noise and self.ctrl_update_freq == 'everyepisode': self.ctrl_update()
-        if self.ctrl_noise: self.ctrl_update()
+        if self.ctrl_noise: self.ctrl_update(variation)
         
     def evolve(self, full_pulse, method):
         assert full_pulse.dtype == np.complex128

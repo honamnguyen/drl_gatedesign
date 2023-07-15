@@ -22,6 +22,7 @@ class ContinuousTransmonEnv(gym.Env):
         self.channels = kw['channels']
         self.sub_action_scale = kw['sub_action_scale']
         self.end_amp_window = kw['end_amp_window']
+        self.normalized_context = kw['normalized_context'] if 'normalized_context' in kw else False
         self.tnow = 0
                 
         self.action_space = spaces.Box(-1,1,[2*len(self.channels)])
@@ -62,14 +63,14 @@ class ContinuousTransmonEnv(gym.Env):
                 'prev_action': spaces.Box(-1,1,[len(state['prev_action'])]),
             }
             if 'all' in self.rl_state:
-                val = 1/self.sim.ctrl_noise
+                val = 1/self.sim.ctrl_noise if self.normalized_context else 1
                 obs_space_dict['drive'] = spaces.Box(-val,val,[len(state['drive'])])
                 obs_space_dict['detune'] = spaces.Box(-val,val,[len(state['detune'])])
                 obs_space_dict['anharm'] = spaces.Box(-val,val,[len(state['anharm'])])
                 obs_space_dict['coupling'] = spaces.Box(-val,val,[len(state['coupling'])])
                 
             elif len(self.context_params) > 0:
-                val = 1/self.sim.ctrl_noise
+                val = 1/self.sim.ctrl_noise if self.normalized_context else 1
                 for param in self.context_params:
                     obs_space_dict[param] = spaces.Box(-val,val,[len(self.sim.current_variation[param])])
                 
@@ -173,8 +174,8 @@ class ContinuousTransmonEnv(gym.Env):
 
         return state, reward, done, {}
     
-    def reset(self):
-        self.sim.reset()
+    def reset(self, variation={}):
+        self.sim.reset(variation)
         self.state = self.init_state
         if self.init_ket is not None:
             self.ket = self.init_ket
@@ -235,7 +236,7 @@ class ContinuousTransmonEnv(gym.Env):
         }
         if len(self.context_params) > 0:
             for param in self.context_params:
-                state[param] = self.sim.current_variation[param]/self.sim.ctrl_noise
+                state[param] = self.sim.current_variation[param]/self.sim.ctrl_noise if self.normalized_context else self.sim.current_variation[param]
                 
         # if 'all' in self.rl_state:
         #     for param in ['drive','detune','anharm','coupling']:
