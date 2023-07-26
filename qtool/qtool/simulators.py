@@ -49,6 +49,7 @@ class TransmonDuffingSimulator(object):
         # System control + control noise
         self.ctrl = params['ctrl']
         self.ctrl_noise = params['ctrl_noise']
+        self.ctrl_noise_dist = params['ctrl_noise_dist'] if 'ctrl_noise_dist' in params else 'uniform'
         self.ctrl_noise_param = self.ctrl.keys() if params['ctrl_noise_param'] == 'all' else params['ctrl_noise_param'].split('_')
         self.ctrl_update_freq = params['ctrl_update_freq']
         assert self.ctrl_update_freq in ['everystep','everyepisode']
@@ -57,7 +58,7 @@ class TransmonDuffingSimulator(object):
         if verbose:
             if self.ctrl_noise:
                 assert self.ctrl_noise <= 1
-                print(f"-   {self.ctrl_update_freq}: Noisy control for '{params['ctrl_noise_param']}' with variance {self.ctrl_noise*100}%")
+                print(f"-   {self.ctrl_update_freq}: Noisy control for '{params['ctrl_noise_param']}' under {self.ctrl_noise_dist} distribution with variance {self.ctrl_noise*100:.2f}%")
                 # if self.ctrl_noise > 1:
                 #     print(f'-   {self.ctrl_update_freq}: Noisy control with variance: {self.ctrl_noise/MHz} MHZ')
                 # else:
@@ -77,6 +78,12 @@ class TransmonDuffingSimulator(object):
             self.H_sys += coupling[i]*( b[i].T @ b[i+1] + b[i] @ b[i+1].T )
         for i in range(self.num_transmon):
             self.H_sys += detune[i]*n[i] + anharm[i]/2*( n[i] @ n[i] - n[i])
+            
+    def _noise_sampler(self, scale, size):
+        if self.ctrl_noise_dist == 'uniform':
+            return np.random.uniform(-scale,scale,size)
+        elif self.ctrl_noise_dist == 'normal':
+            return np.random.normal(0,scale,size)
 
     def ctrl_update(self, variation={}):
         '''
@@ -91,7 +98,8 @@ class TransmonDuffingSimulator(object):
             if param[-1].isdigit():
                 ind = int(param[-1])
                 self.current_variation[param] = variation[param] if param in variation \
-                                                else np.random.uniform(-self.ctrl_noise,self.ctrl_noise,1)
+                                                else self._noise_sampler(self.ctrl_noise,1)
+                                                # else np.random.uniform(-self.ctrl_noise,self.ctrl_noise,1)
                 current_ctrl[param[:-1]][ind] = self.ctrl[param[:-1]][ind]*(1 + self.current_variation[param][0])
                 
                 # mean = self.ctrl[param[:-1]][int(param[-1])]
@@ -100,7 +108,8 @@ class TransmonDuffingSimulator(object):
                 # current_ctrl[param[:-1]][int(param[-1])] =  np.random.normal(mean,noise_var)    
             else:
                 self.current_variation[param] = variation[param] if param in variation \
-                                                else np.random.uniform(-self.ctrl_noise,self.ctrl_noise,len(self.ctrl[param]))
+                                                else self._noise_sampler(self.ctrl_noise,len(self.ctrl[param]))
+                                                # else np.random.uniform(-self.ctrl_noise,self.ctrl_noise,len(self.ctrl[param]))
                 current_ctrl[param] = self.ctrl[param]*(1 + self.current_variation[param])
                 
                 # mean = self.ctrl[param]
@@ -197,8 +206,11 @@ class TransmonDuffingSimulator(object):
         self.H_ctrl_dt = 0
         self.TISE_U = np.eye(self.num_level**self.num_transmon)
         self.TDSE_U = qt.qeye(self.num_level**self.num_transmon)   
-        if self.ctrl_noise: self.ctrl_update(variation)
-        
+        if self.ctrl_noise: 
+            self.ctrl_update(variation)
+        else:
+            self.current_variation = {}
+            
     def evolve(self, full_pulse, method):
         assert full_pulse.dtype == np.complex128
         self.reset()

@@ -42,11 +42,11 @@ if __name__ == "__main__":
         assert len(config_file) == 1
         checkpoint = glob.glob(f'{ray_path}*{args.targetgate}_{args.study}*/checkpoint*')
         chpt_iteration = np.array([int(c.split('_')[-1]) for c in checkpoint])
-        istart = chpt_iteration.max() - 1
+        istart = chpt_iteration.max()
         
         # get run name
         logdir = config_file[0].replace('/params.pkl','')
-        logger_creator = rllib_log_creator_checkpoint(logdir+f'/from_chpt{str(istart+1).zfill(6)}') 
+        logger_creator = rllib_log_creator_checkpoint(logdir+f'/from_chpt{str(istart).zfill(6)}') 
         config = pickle.load(open(config_file[0], "rb"))
         # config['exploration_config']['random_timesteps'] = 0
         # config['exploration_config']['initial_scale'] = 0.1

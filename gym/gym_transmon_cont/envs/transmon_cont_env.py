@@ -26,8 +26,11 @@ class ContinuousTransmonEnv(gym.Env):
         self.tnow = 0
                 
         self.action_space = spaces.Box(-1,1,[2*len(self.channels)])
-        self.update_simulator(kw['sim_name'])           
-                    
+        self.update_simulator(kw['sim_name'])     
+        
+        self.normconst = kw['normconst'] if 'normconst' in kw else self.sim.ctrl_noise
+        if self.normalized_context: print(f'-   Context normalized to [{-1/self.normconst:.1f},{1/self.normconst:.1f}]')
+        
         # rotating target unitary to simulation frame
         S = self.sim.dressed_to_sim
         self.target_unitary = S@kw['target_unitary']@S.T.conj()
@@ -63,16 +66,17 @@ class ContinuousTransmonEnv(gym.Env):
                 'prev_action': spaces.Box(-1,1,[len(state['prev_action'])]),
             }
             if 'all' in self.rl_state:
-                val = 1/self.sim.ctrl_noise if self.normalized_context else 1
+                val = 1/self.normconst if self.normalized_context else 1
                 obs_space_dict['drive'] = spaces.Box(-val,val,[len(state['drive'])])
                 obs_space_dict['detune'] = spaces.Box(-val,val,[len(state['detune'])])
                 obs_space_dict['anharm'] = spaces.Box(-val,val,[len(state['anharm'])])
                 obs_space_dict['coupling'] = spaces.Box(-val,val,[len(state['coupling'])])
                 
             elif len(self.context_params) > 0:
-                val = 1/self.sim.ctrl_noise if self.normalized_context else 1
+                val = 1/self.normconst if self.normalized_context else 1
                 for param in self.context_params:
-                    obs_space_dict[param] = spaces.Box(-val,val,[len(self.sim.current_variation[param])])
+                    # obs_space_dict[param] = spaces.Box(-val,val,[len(self.sim.current_variation[param])])
+                    obs_space_dict[param] = spaces.Box(-val,val,[1]) if param[-1].isdigit() else spaces.Box(-val,val,[len(self.sim.ctrl[param])])
                 
 #             elif self.rl_state_len == 3:
 #                 _, self.param, self.index = self.rl_state.split('_')
@@ -236,7 +240,10 @@ class ContinuousTransmonEnv(gym.Env):
         }
         if len(self.context_params) > 0:
             for param in self.context_params:
-                state[param] = self.sim.current_variation[param]/self.sim.ctrl_noise if self.normalized_context else self.sim.current_variation[param]
+                if param in self.sim.current_variation:
+                    state[param] = self.sim.current_variation[param]/self.normconst if self.normalized_context else self.sim.current_variation[param]
+                else:
+                    state[param] = np.zeros(1) if param[-1].isdigit() else np.zeros(len(self.sim.ctrl[param]))
                 
         # if 'all' in self.rl_state:
         #     for param in ['drive','detune','anharm','coupling']:

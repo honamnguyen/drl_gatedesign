@@ -27,13 +27,14 @@ def parser_init(parser):
         
     # environment
     parser.add_argument('-numqubits',type=int,default=1,help='Number of qubits. Default: 1')
-    parser.add_argument('-maxdepth',type=int,default=5,help='Maximum gate depth. Default: 5')
-    parser.add_argument('-rewardscheme',default='dense',help='Reward scheme. Default: dense')
-    parser.add_argument('-depthpenalty',type=float,default=0,help='Depth penalty. Default: 0')
-    parser.add_argument('-kltarget',type=float,default=0,help='Target KL divergence. Default: 0')
-    parser.add_argument('-klshots',type=int,default=20000,help='Shots used to estimate KL divergence. Default: 20000')
-    parser.add_argument('-kltrials',type=int,default=5,help='Trials used to estimate KL divergence. Default: 5')
-    parser.add_argument('-klbins',type=int,default=75,help='Number of bins used to estimate KL divergence. Default: 75')
+    parser.add_argument('-objmetric',default='paramdim',help='Objective metric. Default: parameter dimension')
+    parser.add_argument('-termmetrics',default='depth',help='Termination metrics. Default: circuit depth')
+    parser.add_argument('-termvalues',default='5',help='MTermination values. Default: circuit depth=5')
+    parser.add_argument('-rewardscheme',default='sparse',help='Reward scheme. Default: sparse')
+    parser.add_argument('-target',type=float,default=0,help='Target KL divergence. Default: 0')
+    parser.add_argument('-shots',type=int,default=20000,help='Shots used to estimate KL divergence. Default: 20000')
+    parser.add_argument('-trials',type=int,default=5,help='Trials used to estimate KL divergence. Default: 5')
+    parser.add_argument('-numbins',type=int,default=75,help='Number of bins used to estimate KL divergence. Default: 75')
     parser.add_argument('-rlstate',default='2D',help='State type for RL agent. Default: 2D')
     parser.add_argument('-q2gates',default='CX',help='Two qubit entangeling gates. Default: CX')
     parser.add_argument('-q1gates',default='H_RX_RZ',help='Single qubit gates. Default: H_RX_RZ')
@@ -73,36 +74,46 @@ def get_kw(args):
     
     # physical setting
     num_qubits = args.numqubits
-#     if args.entgate in ['CX','CY','CZ']:
-#         gateset = [['H','RX','RZ'],[args.entgate]]
     gateset = [args.q1gates.split('_'),args.q2gates.split('_')]
-    print(gateset)
     method = args.method
     
     # state
     rl_state = args.rlstate
 
-    # reward
-    max_depth = args.maxdepth
+    # reward + termination
+    objective_metrics = args.objmetric
+    termination_metrics = args.termmetrics.split('_')
+    termination_values = []
+    for val in args.termvalues.split('_'):
+        if val.isdigit():
+            termination_values.append(int(val))
+        else:
+            termination_values.append(float(val))
     reward_scheme = args.rewardscheme
-    depth_penalty = args.depthpenalty
-    # reward_scheme = rsdict[args.rewardscheme[0]]+args.rewardscheme[1:]
-    kl_target = args.kltarget
-    kl_shots = args.klshots
-    kl_trials = args.kltrials
-    kl_bins = args.klbins
+    shots = args.shots
+    trials = args.trials
+    num_bins = args.numbins
 
     kw = {
         'rl_state': rl_state, # 2D
         'step_params': {
-            'max_depth': max_depth,
-            'reward_scheme': reward_scheme, # dense
-            'depth_penalty': depth_penalty,
-            'kl_shots': kl_shots,
-            'kl_trials': kl_trials,
-            'num_bins': kl_bins,
-            'kl_target': kl_target,
+            'objective_metric': objective_metrics, #'twoqdepth', #'logexpressibility',
+            'termination_metrics': termination_metrics,
+            'termination_values': termination_values,
+            'reward_scheme': reward_scheme,
+            'shots': shots,
+            'num_bins': num_bins,
+            'trials': trials,
         },
+        # 'step_params': {
+        #     'max_depth': max_depth,
+        #     'reward_scheme': reward_scheme, # dense
+        #     'depth_penalty': depth_penalty,
+        #     'kl_shots': kl_shots,
+        #     'kl_trials': kl_trials,
+        #     'num_bins': kl_bins,
+        #     'kl_target': kl_target,
+        # },
         'sim_params': {
             'name': 'PQC',
             'num_qubits': num_qubits,

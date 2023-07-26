@@ -119,7 +119,8 @@ class PQC():
     def reset(self):
         # state dim: [layer, qubit, gate class]
         self.state = np.zeros([1,self.num_qubits,len(self.gateclass)],dtype=int)
-        self.used_qubits = np.zeros(self.num_qubits,dtype=int) #if qubit already used in current layer
+        self.avail_layer = np.zeros(self.num_qubits,dtype=int) # he next avail layer for each qubit
+        self.param_indices = [[]]
         if 'standard' in self.method:
             self.fixed_Us = [np.eye(self.N)]
             self.param_layers = [[]] # only has nontrivial gates
@@ -128,6 +129,20 @@ class PQC():
         self.num_params = 0
         self.kets = []
         self.gateseq = []
+        
+    def undo(self):
+        '''Undo one step'''
+        self.gateseq = self.previous_step_dict['gateseq']
+        self.avail_layer = self.previous_step_dict['avail_layer']
+        self.state = self.previous_step_dict['state']
+        self.param_indices = self.previous_step_dict['param_indices']
+        self.num_params = self.previous_step_dict['num_params']
+        
+        if 'standard' in self.method:
+            self.fixed_Us = self.previous_step_dict['fixed_Us']
+            self.param_layers = self.previous_step_dict['param_layers']
+        elif 'precalc' in self.method:
+            self.layers = self.previous_step_dict['layers']
            
     def append(self, gate, qubits):
         '''
@@ -135,37 +150,54 @@ class PQC():
         
         Currently only support single-qubit parameterized gates
         '''
+        # Save the state in previous step for undoing
+        self.previous_step_dict = {
+            'gateseq': self.gateseq.copy(),
+            'avail_layer': self.avail_layer.copy(),
+            'state': self.state.copy(),
+            'param_indices': self.param_indices.copy(),
+            'num_params': self.num_params,
+        }
+        if 'standard' in self.method:
+            self.previous_step_dict['fixed_Us'] = self.fixed_Us.copy()
+            self.previous_step_dict['param_layers'] = self.param_layers.copy()
+        elif 'precalc' in self.method:
+            self.previous_step_dict['layers'] = self.layers.copy()        
+        
         self.gateseq.append([gate,qubits])
         # if qubit already acted on, move to next layer
-        if (self.used_qubits[qubits]==1).any():
+        if (self.avail_layer[qubits]==self.state.shape[0]).any(): 
             self.state = np.vstack([self.state,np.zeros([1,self.num_qubits,len(self.gateclass)],dtype=int)])
-            self.used_qubits *= 0
+            self.param_indices.append([])
             if 'standard' in self.method:
                 self.fixed_Us.append(np.eye(self.N))
                 self.param_layers.append([])
             elif 'precalc' in self.method:
                 self.layers.append([])
 
-            
         # update state
-        self.used_qubits[qubits] = 1
+        layer_pos = max(self.avail_layer[qubits])
+        self.avail_layer[qubits] = layer_pos + 1
         if len(qubits) == 1:
-            self.state[-1,qubits[0],self.gateclass.index(gate)] = 1
+            self.state[layer_pos,qubits[0],self.gateclass.index(gate)] = 1
         elif len(qubits) == 2:
-            self.state[-1,qubits[0],self.gateclass.index(gate+'_ctrl')] = 1
-            self.state[-1,qubits[1],self.gateclass.index(gate+'_targ')] = 1
+            self.state[layer_pos,qubits[0],self.gateclass.index(gate+'_ctrl')] = 1
+            self.state[layer_pos,qubits[1],self.gateclass.index(gate+'_targ')] = 1
         
         # update layer
         if 'standard' in self.method:
             if 'R' in gate:
-                self.param_layers[-1].append([gate,qubits])
+                self.param_layers[layer_pos].append([gate,qubits])
+                self.param_indices[layer_pos].append(self.num_params)
                 self.num_params += 1
             else:
                 U = self.gatedict[gate+''.join([str(q) for q in qubits])]
-                self.fixed_Us[-1] = U @ self.fixed_Us[-1] 
+                self.fixed_Us[layer_pos] = U @ self.fixed_Us[layer_pos] 
         elif 'precalc' in self.method:
-            self.layers[-1].append(''.join([str(x) for x in [gate,*qubits]]))
-            if 'R' in gate: self.num_params += 1
+            self.layers[layer_pos].append(''.join([str(x) for x in [gate,*qubits]]))
+            if 'R' in gate: 
+                self.param_indices[layer_pos].append(self.num_params)
+                self.num_params += 1
             
     def get_state(self, state_type):
         if '2D' in state_type:
@@ -243,7 +275,8 @@ class PQC():
         
     def sample(self, shots=5000, override_thetas=[]):
         self.thetas = thetas = override_thetas if len(override_thetas) else np.random.uniform(0, 2*np.pi, size=[self.num_params, shots])
-
+        thetas = self.thetas[np.hstack(self.param_indices).astype(int)] #the correct order of parameters
+        
         ### evolution with a batch of sample ###
         if 'standard' in self.method:
             param_i = 0
@@ -392,10 +425,47 @@ class PQC():
             assert abs(avg_purity.imag).max() < 1e-10
             return (2*(1 - avg_purity.real)).mean()
             
+    def param_dim(self, thetas=None, method='shift_rule'):
+        '''Estimated via effective quantum dimension at a random theta'''
+        if self.num_params == 0:
+            return 0
+        
+        if method == 'shift_rule':
+            n = self.num_params
+            n2 = self.num_params**2
+            if thetas is None:
+                thetas = np.random.uniform(0, 2*np.pi, n)
+
+            ei = np.eye(n,dtype=int)
+            ei_plus_ej = ei[None] + ei[:,None]
+            ei_minus_ej = ei[None] - ei[:,None]
+
+            thetas1 = (thetas[None,None] + ei_plus_ej*np.pi/2).reshape(-1,n)
+            thetas2 = (thetas[None,None] + ei_minus_ej*np.pi/2).reshape(-1,n)
+            thetas3 = (thetas[None,None] - ei_minus_ej*np.pi/2).reshape(-1,n)
+            thetas4 = (thetas[None,None] - ei_plus_ej*np.pi/2).reshape(-1,n)
+            all_thetas = np.vstack([thetas1,thetas2,thetas3,thetas4,thetas]).T
+
+
+            kets = self.sample(override_thetas=all_thetas)
+            fids = fidelity(kets[-2:-1],kets[:-1])
+
+            self.qfi = -1/8*(  fids[:n2] \
+                             - fids[n2:2*n2] \
+                             - fids[2*n2:3*n2] \
+                             + fids[3*n2:4*n2])
+            self.qfi = self.qfi.reshape(n,n)
+            return np.linalg.matrix_rank(self.qfi)
     
     @property
     def depth(self):
         return self.state.shape[0]
+    @property
+    def twoq_depth(self):
+        return sum(['C' in ''.join(layer) for layer in self.layers])
+    @property
+    def twoq_count(self):
+        return sum(['C' in gate for gate in np.hstack(self.layers)])
     
     ### Testing
     def test_sample_qiskit(self, shots=10):
