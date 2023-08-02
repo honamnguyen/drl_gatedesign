@@ -14,7 +14,6 @@ def parser_init(parser):
     parser.add_argument('-study',default='NoStudy',help='Study name for easy data analysis. Default: NoStudy.')
     # parser.add_argument('-chptrun',default=None,help='Name fragments of run. Default: None.')
     # parser.add_argument('-chpt',default=None,help='Checkpoint. Default: None.')
-    parser.add_argument('-chpt',action='store_true',help='Restart run from latest checkpoint. Default: None')
     
     # rllib
     parser.add_argument('-numworkers',type=int,default=0,help='Number of workers for data collection. Default: 0')    
@@ -39,6 +38,7 @@ def parser_init(parser):
     parser.add_argument('-detuning',default='115,0',help='Detuning frequencies (MHz). Default: 115,0')
     parser.add_argument('-coupling',type=float,default=1.87,help='Coupling strength between two transmons (MHz). Default: 1.87')
     parser.add_argument('-ctrlnoise',type=float,default=0,help='Noisy control variance in % or in Hz. Default: 0')
+    parser.add_argument('-ctrlnoisedist',default='uniform',help='Noise distribution. Default: uniform')
     parser.add_argument('-ctrlnoiseparam',default='all',help='Noisy control parameters. Default: all')
     parser.add_argument('-ctrlupdatefreq',default='everyepisode',help='Control update freq. Default: everyepisode')
     parser.add_argument('-rewardtype',default='worst',help='Reward type: worst or average. Default: worst')
@@ -75,6 +75,11 @@ def parser_init(parser):
     parser.add_argument('-td3policydelay',type=int,default=1,help='TD3 modification, delay policy update. Default: 1')
     parser.add_argument('-td3smoothtarget',default=False,action='store_true',help='TD3 modification, smooth target policy. Default: False')
     
+    # Restart
+    parser.add_argument('-chpt',default='',help='Restart run from latest checkpoint. Default: blank')
+    parser.add_argument('-rstudy',default='',help='Restart study name for easy data analysis.')
+    parser.add_argument('-rctrlnoise',type=float,default=None,help='Noisy control variance in % or in Hz. Default: None')
+    parser.add_argument('-rctrlnoisedist',default=None,help='Noise distribution. Default: None')
     # ray tune
     # parser.add_argument('-tunecpu',type=int,default=1,help='Tune CPUs. Default: 1')
     parser.add_argument('-tunegpus',type=int,default=0,help='Tune GPUs. Default: 0')
@@ -142,6 +147,7 @@ def transmon_kw(args):
                          'dt':dt,
                          'ctrl': ctrl,
                          'ctrl_noise': args.ctrlnoise,
+                         'ctrl_noise_dist': args.ctrlnoisedist,
                          'ctrl_noise_param': args.ctrlnoiseparam,
                          'ctrl_update_freq': args.ctrlupdatefreq,
                          }

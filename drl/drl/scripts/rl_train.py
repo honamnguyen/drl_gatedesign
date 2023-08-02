@@ -35,25 +35,43 @@ if __name__ == "__main__":
     args = parser_init(argparse.ArgumentParser()).parse_args()
     ray_path = '../../../data/ray_results/'
     
-    if args.chpt:
+    if args.chpt != '':
         
-        config_file = glob.glob(f'{ray_path}*{args.targetgate}_{args.study}_*/params.pkl')
-        # print(config_file)
-        assert len(config_file) == 1
-        checkpoint = glob.glob(f'{ray_path}*{args.targetgate}_{args.study}*/checkpoint*')
-        chpt_iteration = np.array([int(c.split('_')[-1]) for c in checkpoint])
-        istart = chpt_iteration.max()
+        config_file = glob.glob(f'{ray_path}*{args.targetgate}*{args.study}*/params.pkl')
+        checkpoint = glob.glob(f'{ray_path}*{args.targetgate}*{args.study}*/checkpoint_0{args.chpt}')
+        print('  --config_file: ',config_file)
+        print('  --checkpoint: ',checkpoint)
+        assert len(config_file) == 1 and len(checkpoint) == 1
+        istart = int(args.chpt)
+        # chpt_iteration = np.array([int(c.split('_')[-1]) for c in checkpoint])
+        # istart = chpt_iteration.max()
         
         # get run name
         logdir = config_file[0].replace('/params.pkl','')
-        logger_creator = rllib_log_creator_checkpoint(logdir+f'/from_chpt{str(istart).zfill(6)}') 
+        logger_creator = rllib_log_creator_checkpoint(logdir+f'/from_chpt{str(istart).zfill(6)}'+args.rstudy) 
         config = pickle.load(open(config_file[0], "rb"))
         # config['exploration_config']['random_timesteps'] = 0
         # config['exploration_config']['initial_scale'] = 0.1
         
+        ## need time to make this restart change more generally ##
+        if args.rctrlnoise is not None:
+            config['env_config']['qsim_params']['ctrl_noise'] = args.rctrlnoise
+        if args.rctrlnoisedist is not None:
+            config['env_config']['qsim_params']['ctrl_noise_dist'] = args.rctrlnoisedist
+        # env_config = transmon_kw(args)
+        # for key in env_config.keys():
+        #     print(env_config[key])
+        #     cond = (not np.array_equal(env_config[key],config['env_config'][key])) if type(env_config[key]) is np.ndarray else (env_config[key] != config['env_config'][key])
+        #     if cond:
+        #         print('-* Replace ',config['env_config'][key])
+        #         print('-* with ',env_config[key])
+        #         config['env_config'][key] = env_config[key]
+        
         trainer = Seeded_DDPG(config=config, logger_creator=logger_creator)
-        trainer.restore(checkpoint[chpt_iteration.argmax()])
-        print(f'\n---> Restart run from {checkpoint[chpt_iteration.argmax()]}\n')
+        trainer.restore(checkpoint[0])
+        print(f'\n---> Restart run from {checkpoint[0]}\n')
+        # trainer.restore(checkpoint[chpt_iteration.argmax()])
+        # print(f'\n---> Restart run from {checkpoint[chpt_iteration.argmax()]}\n')
         
         
     else:

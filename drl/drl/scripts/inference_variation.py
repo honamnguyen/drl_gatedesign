@@ -78,10 +78,16 @@ if __name__ == '__main__':
             data_temp['fiducials'][param] = config['env_config']['qsim_params']['ctrl'][param[:-1]][int(param[-1])]
         else:
             data_temp['fiducials'][param] = config['env_config']['qsim_params']['ctrl'][param]
-        print(f"\n Fiducial values for {param}:",(data_temp['fiducials'][param]/2/np.pi/1e6).round(3)," MHz")
+        print(f"Fiducial values for {param}:",(data_temp['fiducials'][param]/2/np.pi/1e6).round(3)," MHz")
         
     # Recover checkpoint
-    for chpt in args.chpt.split('_'):
+    if 'range' in args.chpt:
+        vmin, vmax, step = [int(x) for x in args.chpt.replace('range_','').split('_')]
+        chpts = np.arange(vmin,vmax+step,step)[::-1]
+    else:
+        chpts = [int(x) for x in args.chpt.split('_')]
+    for chpt in chpts:
+        chpt = str(int(100*chpt)).zfill(6)
         start = time.time()
         checkpoints = glob.glob(f'{run}/checkpoint*{chpt}')
         print(checkpoints)
@@ -108,7 +114,7 @@ if __name__ == '__main__':
                 pulse.append(env.prev_action.view(np.complex128))
             data['avg_fids'].append(env.avg_fid)
             data['worst_fids'].append(env.fid)
-            data['pulses'].append(pulse)
+            data['pulses'].append(np.array(pulse))
             print(f'var = {variation:.3f}, {env.avg_fid:.5f}')
         data['pulses'] = np.array(data['pulses'])
         data['avg_fids'] = np.array(data['avg_fids'])
