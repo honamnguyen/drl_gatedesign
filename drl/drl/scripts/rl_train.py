@@ -38,7 +38,7 @@ if __name__ == "__main__":
     if args.chpt != '':
         
         config_file = glob.glob(f'{ray_path}*{args.targetgate}*{args.study}*/params.pkl')
-        checkpoint = glob.glob(f'{ray_path}*{args.targetgate}*{args.study}*/checkpoint_0{args.chpt}')
+        checkpoint = glob.glob(f'{ray_path}*{args.targetgate}*{args.study}*/checkpoint_{args.chpt.zfill(6)}')
         print('  --config_file: ',config_file)
         print('  --checkpoint: ',checkpoint)
         assert len(config_file) == 1 and len(checkpoint) == 1

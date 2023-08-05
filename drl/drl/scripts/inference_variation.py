@@ -83,7 +83,7 @@ if __name__ == '__main__':
     # Recover checkpoint
     if 'range' in args.chpt:
         vmin, vmax, step = [int(x) for x in args.chpt.replace('range_','').split('_')]
-        chpts = np.arange(vmin,vmax+step,step)[::-1]
+        chpts = np.arange(vmin,vmax+step,step) #[::-1]
     else:
         chpts = [int(x) for x in args.chpt.split('_')]
     for chpt in chpts:
