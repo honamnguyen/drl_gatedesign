@@ -25,7 +25,6 @@ class TransmonDuffingSimulator(object):
             raise NotImplementedError(f'Drive hamiltonian not implemented for {num_transmon} transmons! What are the channels?')
 
         self.dt = params['dt']
-        # self.qubit_indices,_ = qubit_subspace(self.num_level,self.num_transmon)
         
         # Set up raising, lowering, and occupancy operators
         b = np.diag(np.sqrt(np.arange(1, num_level)), 1)
@@ -99,24 +98,13 @@ class TransmonDuffingSimulator(object):
                 ind = int(param[-1])
                 self.current_variation[param] = variation[param] if param in variation \
                                                 else self._noise_sampler(self.ctrl_noise,1)
-                                                # else np.random.uniform(-self.ctrl_noise,self.ctrl_noise,1)
                 current_ctrl[param[:-1]][ind] = self.ctrl[param[:-1]][ind]*(1 + self.current_variation[param][0])
                 
-                # mean = self.ctrl[param[:-1]][int(param[-1])]
-                # noise_var = self.ctrl_noise if self.ctrl_noise >= 1 else self.ctrl_noise*abs(mean)
-                # current_ctrl[param[:-1]][int(param[-1])] =  np.random.uniform(mean-noise_var,mean+noise_var)
-                # current_ctrl[param[:-1]][int(param[-1])] =  np.random.normal(mean,noise_var)    
             else:
                 self.current_variation[param] = variation[param] if param in variation \
                                                 else self._noise_sampler(self.ctrl_noise,len(self.ctrl[param]))
-                                                # else np.random.uniform(-self.ctrl_noise,self.ctrl_noise,len(self.ctrl[param]))
                 current_ctrl[param] = self.ctrl[param]*(1 + self.current_variation[param])
-                
-                # mean = self.ctrl[param]
-                # noise_var = self.ctrl_noise if self.ctrl_noise >= 1 else self.ctrl_noise*abs(mean)
-                # current_ctrl[param] =  np.random.uniform(mean-noise_var,mean+noise_var)
-                # current_ctrl[param] =  np.random.normal(mean,noise_var)
-        
+                        
         self.current_ctrl = current_ctrl
         self.calculate_H_sys(current_ctrl)            
             
@@ -189,6 +177,8 @@ class TransmonDuffingSimulator(object):
                                                      args = Hargs)*self.TDSE_U
 
         elif method == 'TISE':
+            # this phase shouldn't be needed
+            # if there's a phase, TDSE should be used instead
             phase = np.where(abs(detune)>1,
                              np.exp(1j*self.dt*t_step*detune)/(1j*(detune+1e-5))*(np.exp(1j*self.dt*detune)-1), 
                              self.dt).reshape(-1,1,1)

@@ -90,8 +90,10 @@ if __name__ == '__main__':
         chpt = str(int(100*chpt)).zfill(6)
         start = time.time()
         checkpoints = glob.glob(f'{run}/checkpoint*{chpt}')
-        print(checkpoints)
-        assert len(checkpoints) == 1
+        if len(checkpoints) != 1:
+            print(f'{run}/checkpoint*{chpt}')
+            print(checkpoints)
+            raise ValueError
         checkpoint = checkpoints[0]
         agent = DDPG(config=config)
         agent.restore(checkpoint)   

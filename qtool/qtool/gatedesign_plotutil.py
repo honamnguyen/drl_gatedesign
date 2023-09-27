@@ -3,6 +3,8 @@ import glob, pickle
 def get_data(run, chpt, data_path, rl=True, verbose=True):
     if rl:
         file = glob.glob(f'{data_path}/ray_results/*{run}*/RLPulse*map*{chpt}*')
+        if len(file) == 0:
+            file = glob.glob(f'{data_path}/old_ray_results/*{run}*/RLPulse*map*{chpt}*')
     else:
         file = glob.glob(f'{data_path}/two_qubit_gate/theory_{run}*{chpt}.pkl')
 

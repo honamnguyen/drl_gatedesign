@@ -640,12 +640,13 @@ def partial_trace(state_vector, indices, num_level=2, test=False):
     rho = np.moveaxis(rho.reshape((new_shape, new_shape, -1)),-1,0)
     
     if test:
+        kets = state_vector
         from qutip import Qobj, ket2dm
         rho_qutip = []
         for i in range(state_vector.shape[-1]):
             ket = Qobj(kets[i])
             ket.dims = [list(shape),[1]]
-            rho_qutip.append(ket.ptrace(ind).data.toarray())
+            rho_qutip.append(ket.ptrace(i).data.toarray())
         rho_qutip = np.array(rho_qutip)
         print(f'Diff between qutip and this implementation {abs(rho-rho_qutip).max():.5e}')
         

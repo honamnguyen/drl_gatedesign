@@ -51,6 +51,7 @@ def parser_init(parser):
     parser.add_argument('-rlstate',default='ket',help='Quantum state representation as input for RL agent. Default: ket')
     parser.add_argument('-normalizedcontext',default=False,action='store_true',help='Normalized context variable to [-1,1]. Default: False')
     parser.add_argument('-evolvemethod',default='TDSE',help='Time-dependent or independent evolution. Default: TDSE')
+    parser.add_argument('-fixedpulse',default='',help='Fixed pulse to learn on top off. Default: ')
     
     # networks
     parser.add_argument('-hidsizes',default='800,400,200',help='Hidden layer sizes. Default: 800,400,200')
@@ -180,6 +181,7 @@ def transmon_kw(args):
     kw['channels'] = [int(c) for c in args.channels]
     kw['sub_action_scale'] = None if int(args.subactionscale)==-1 else args.subactionscale 
     kw['end_amp_window'] = args.endampwindow
+    kw['fixed_pulse'] = args.fixedpulse
     
         
     kw['step_params'] = {

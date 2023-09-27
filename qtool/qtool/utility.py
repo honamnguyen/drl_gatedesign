@@ -266,6 +266,7 @@ Y = np.array([[0,-1j],[1j,0]])
 Z = np.array([[1,0],[0,-1]])
 H = 1/np.sqrt(2)*np.array([[1,1],[1,-1]])
 X90 = (I-1j*X)/np.sqrt(2)
+S = np.diag([1,1j])
 
 def common_gate(name):
     gate_dict = {'sqrtZX': 1/np.sqrt(2)*np.array([[ 1, 1j,   0,   0],
@@ -640,6 +641,112 @@ def compute_leakage(env):
     assert (abs(L1.imag) + abs(L2.imag))<1e-10 
     L1, L2 = L1.real, L2.real
     return L1, L2
+
+#---------------------------- Entanglement ------------------------------#
+def partial_trace(state_vector, indices, num_level=2, test=False):
+    '''
+    Supports a single or a batch of state vectors [batch,...]
+    output reduced density matrix for the qubits specified by the indices
+    '''
+    if len(state_vector.shape) == 1:
+        state_vector = state_vector[...,None]
+    else:
+        state_vector = np.moveaxis(state_vector,0,-1)
+        
+    batch = state_vector.shape[-1]
+    n_qubits = int(np.emath.logn(num_level, state_vector.shape[0]))
+    shape = (2,)*n_qubits
+
+    indices = list(indices)
+    state_vector = state_vector.reshape(*shape,batch)
+
+    sum_inds = np.array(range(n_qubits))
+    sum_inds[indices] += n_qubits+1
+    
+    rho = np.einsum(
+        state_vector,
+        list(range(n_qubits)) + [n_qubits],
+        np.conj(state_vector),
+        sum_inds.tolist() + [n_qubits],
+        indices + list(sum_inds[indices]) + [n_qubits],
+    )
+    new_shape = np.prod([shape[i] for i in indices], dtype=np.int64)
+    rho = np.moveaxis(rho.reshape((new_shape, new_shape, -1)),-1,0)
+    
+    if test:
+        kets = state_vector
+        from qutip import Qobj, ket2dm
+        rho_qutip = []
+        for i in range(state_vector.shape[-1]):
+            ket = Qobj(kets[i])
+            ket.dims = [list(shape),[1]]
+            rho_qutip.append(ket.ptrace(i).data.toarray())
+        rho_qutip = np.array(rho_qutip)
+        print(f'Diff between qutip and this implementation {abs(rho-rho_qutip).max():.5e}')
+        
+    return rho[0] if rho.shape[0] == 1 else rho
+
+def purity(rho):
+    if len(rho.shape) == 2:
+        rho = rho[None,...]
+    pur = np.einsum('bij,bji->b',rho,rho)
+    return pur[0] if pur.shape[0] == 1 else pur
+
+single_qubit_cliffords = [
+    I,
+    H, S,
+    H@S, S@H, S@S,
+    H@S@H, H@S@S, S@H@S, S@S@H, S@S@S,
+    H@S@H@S, H@S@S@H, H@S@S@S, S@H@S@S, S@S@H@S,
+    H@S@H@S@S, H@S@S@H@S, S@H@S@S@H, S@H@S@S@S, S@S@H@S@S,
+    H@S@H@S@S@H, H@S@H@S@S@S, H@S@S@H@S@S,
+]
+clifford_states = np.array([U[:,0] for U in single_qubit_cliffords])
+clifford_states_labels = [
+    'z+', 
+    'x+', 'z+',
+    'x+', 'y+', 'z+',
+    '~iy-', 'x+', 'y+', 'x-', 'z+',
+    '~iy-', 'z-', 'x+', 'y+', 'x-',
+    '~iy-', 'z-', 'iz-', 'y+', 'x-',
+    'ix-', '~iy-', 'z-',
+]
+
+pauli_states = np.vstack([
+    np.array([1,0]),
+    np.array([0,1]),
+    np.array([1,1])/np.sqrt(2),
+    np.array([1,-1])/np.sqrt(2),
+    np.array([1,1j])/np.sqrt(2),
+    np.array([1,-1j])/np.sqrt(2),
+])
+
+def von_Neumann_entropy(rhos):
+    e = np.linalg.eigh(rhos)[0]
+    entropy = (-e*np.nan_to_num(np.log(e))).sum(1)
+    return entropy
+
+def get_linear_entropy_3design(U,normalized=True,states='pauli'):
+    if states == 'pauli':
+        kets = np.einsum('mi,nj->mnij',pauli_states,pauli_states).reshape(pauli_states.shape[0]**2,4)
+    elif states == 'clifford':
+        kets = np.einsum('mi,nj->mnij',clifford_states,clifford_states).reshape(clifford_states.shape[0]**2,4)
+        
+    kets = np.einsum('ij,bj->bi',U,kets)
+    if normalized:
+        overlap = np.einsum('ni,ni->n',kets.conj(),kets)
+        kets /= np.sqrt(overlap)[:,None]
+    return 1-purity(partial_trace(kets,[0])).real
+
+def get_von_Neumann_entropy_3design(U,normalized=True):
+    kets = np.einsum('mi,nj->mnij',pauli_states,pauli_states).reshape(pauli_states.shape[0]**2,4)
+    kets = np.einsum('ij,nj->ni',U,kets)
+    if normalized:
+        overlap = np.einsum('ni,ni->n',kets.conj(),kets)
+        kets /= np.sqrt(overlap)[:,None]
+    # doesn't matter which qubit to trace out
+    return von_Neumann_entropy(partial_trace(kets,[0])) 
+
 
 ###########################################################################
 ################################## PULSE ##################################

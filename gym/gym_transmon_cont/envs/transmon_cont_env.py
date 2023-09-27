@@ -4,6 +4,7 @@ from gym import error, spaces, utils
 from gym.utils import seeding
 from qtool.simulators import *
 from qtool.utility import *
+import pickle
 
 class ContinuousTransmonEnv(gym.Env):
     metadata = {'render.modes': ['human']}
@@ -25,8 +26,14 @@ class ContinuousTransmonEnv(gym.Env):
         self.normalized_context = kw['normalized_context'] if 'normalized_context' in kw else False
         self.tnow = 0
                 
-        self.action_space = spaces.Box(-1,1,[2*len(self.channels)])
         self.update_simulator(kw['sim_name'])     
+        
+        self.fixed_pulse = np.zeros([self.step_params['max_step'],self.sim.num_channel], dtype=np.complex128)
+        if 'fixed_pulse' in kw:
+            if kw['fixed_pulse'] != '':
+                path, name, channels = kw['fixed_pulse'].split('-')
+                channels = [int(x) for x in channels.split(',')]
+                self.fixed_pulse[:,channels] = pickle.load(open(f'{path}/data/fixed_pulses.pkl', 'rb'))[name]
         
         self.normconst = kw['normconst'] if 'normconst' in kw else self.sim.ctrl_noise
         if self.normalized_context: print(f'-   Context normalized to [{-1/self.normconst:.1f},{1/self.normconst:.1f}]')
@@ -55,7 +62,7 @@ class ContinuousTransmonEnv(gym.Env):
         # eg: ket_all
         self.context_params = ['drive','detune','anharm','coupling'] if 'all' in self.rl_state else self.rl_state.split('_')[1:] # noisy param
 
-            
+        self.action_space = spaces.Box(-1,1,[2*len(self.channels)])            
         # 'concat' observation space for old runs before changing to dict
         if 'concat' in self.rl_state:
             self.observation_space = spaces.Box(-2,2,[len(self.reset())])
@@ -105,7 +112,7 @@ class ContinuousTransmonEnv(gym.Env):
         else:
             expanded_action = np.zeros(self.sim.num_channel, dtype=np.complex128)
             expanded_action[self.channels] = complex_action
-            expmap = self.sim.get_expmap(expanded_action,self.tnow,evolve_method)
+            expmap = self.sim.get_expmap(expanded_action+self.fixed_pulse[self.tnow],self.tnow,evolve_method)
         expmap_super = tensor([expmap,expmap.conj()])
 
         # else:
