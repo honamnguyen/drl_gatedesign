@@ -1,4 +1,4 @@
-import argparse, json, numpy as np
+import argparse, json, numpy as np, pickle
 from qtool.utility import get_reduced_basis, get_ket_basis, qubit_subspace, common_gate
 
 def write_dict_to_file(name,d):
