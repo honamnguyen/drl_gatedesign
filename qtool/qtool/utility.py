@@ -341,7 +341,7 @@ def Zgate_on_all(thetas,num_level=2):
         Z_list.append(Zgate(theta))
         
     Zs = np.eye(num_level**len(thetas),dtype=np.complex128)
-    qubit_indices,_ = qubit_subspace(num_level,len(thetas))
+    _,qubit_indices,_ = qubit_subspace(num_level,len(thetas))
     Zs[qubit_indices] = tensor(Z_list)
     return Zs
 

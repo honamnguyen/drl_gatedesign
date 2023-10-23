@@ -20,6 +20,7 @@ def parser_init(parser):
     parser.add_argument('-numgpus',type=int,default=0,help='Number of GPUs. Default: 0')    
     parser.add_argument('-numiter',type=int,default=10000,help='Number of iteration. Default: 10000')    
     parser.add_argument('-stepsperiter',type=int,default=1000,help='Timesteps per iteration. Default: 1000')    
+    parser.add_argument('-randomtimesteps',type=int,default=1000,help='Number of random time steps before scaled noise. Default: 1000')    
     
     # environment
     parser.add_argument('-numtransmon',type=int,default=2,help='Number of transmons. Default: 2')
@@ -31,6 +32,8 @@ def parser_init(parser):
     parser.add_argument('-IBMbackend',default=None,help='IBM backend to get hamitonian variables. Default: None')
     parser.add_argument('-IBMqubits',default=None,help='Which IBM backend qubits to simulate. Default: None')
     parser.add_argument('-IBMUDratio',type=float,default=10,help='Ratio between the max amplitude allowed between Control Channel (U) and Drive Channel(D). Default: 10')
+    parser.add_argument('-drift',default=None,help='Drift on device params. Default: None')
+
     
     
     parser.add_argument('-anharmonicity',default='-319.7,-320.2',help='Anharmonicities on two transmons (MHz). Default: -319.7,-320.2')
@@ -81,6 +84,8 @@ def parser_init(parser):
     parser.add_argument('-rstudy',default='',help='Restart study name for easy data analysis.')
     parser.add_argument('-rctrlnoise',type=float,default=None,help='Noisy control variance in % or in Hz. Default: None')
     parser.add_argument('-rctrlnoisedist',default=None,help='Noise distribution. Default: None')
+    parser.add_argument('-rseed',default=None,help='Restart seed. Default: None')
+    
     # ray tune
     # parser.add_argument('-tunecpu',type=int,default=1,help='Tune CPUs. Default: 1')
     parser.add_argument('-tunegpus',type=int,default=0,help='Tune GPUs. Default: 0')
@@ -136,9 +141,8 @@ def transmon_kw(args):
         'detune': detune,
         'anharm': anharm,
         'coupling': coupling,
-        'freq': freq,
+        # 'freq': freq,
     }
-    
     
     ### Collect everything into kw ###
     kw = {}
@@ -152,6 +156,10 @@ def transmon_kw(args):
                          'ctrl_noise_param': args.ctrlnoiseparam,
                          'ctrl_update_freq': args.ctrlupdatefreq,
                          }
+    if args.drift is not None:        
+        variation = pickle.load(open(f'../../../data/{args.IBMbackend}{args.IBMqubits}_drift_{args.drift}.pkl', 'rb'))
+        kw['qsim_params']['fixed_variation'] = variation
+
     kw['sim_name'] = 'TransmonDuffingSimulator'
     # state
     kw['rl_state'] = args.rlstate

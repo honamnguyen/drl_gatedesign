@@ -52,6 +52,16 @@ class TransmonDuffingSimulator(object):
         self.ctrl_noise_param = self.ctrl.keys() if params['ctrl_noise_param'] == 'all' else params['ctrl_noise_param'].split('_')
         self.ctrl_update_freq = params['ctrl_update_freq']
         assert self.ctrl_update_freq in ['everystep','everyepisode']
+        if 'fixed_variation' in params:
+            self.drifted = True
+            self.fixed_variation = params['fixed_variation']
+            for key in self.ctrl_noise_param:
+                assert key in self.fixed_variation
+        else:
+            self.drifted = False
+            self.fixed_variation = {}
+            for key in self.ctrl_noise_param:
+                self.fixed_variation[key] = 0*self.ctrl[key]
         self.current_ctrl = deepcopy(self.ctrl)
         
         if verbose:
@@ -98,11 +108,13 @@ class TransmonDuffingSimulator(object):
                 ind = int(param[-1])
                 self.current_variation[param] = variation[param] if param in variation \
                                                 else self._noise_sampler(self.ctrl_noise,1)
+                self.current_variation[param] += self.fixed_variation[param]
                 current_ctrl[param[:-1]][ind] = self.ctrl[param[:-1]][ind]*(1 + self.current_variation[param][0])
                 
             else:
                 self.current_variation[param] = variation[param] if param in variation \
                                                 else self._noise_sampler(self.ctrl_noise,len(self.ctrl[param]))
+                self.current_variation[param] += self.fixed_variation[param]
                 current_ctrl[param] = self.ctrl[param]*(1 + self.current_variation[param])
                         
         self.current_ctrl = current_ctrl
@@ -196,7 +208,7 @@ class TransmonDuffingSimulator(object):
         self.H_ctrl_dt = 0
         self.TISE_U = np.eye(self.num_level**self.num_transmon)
         self.TDSE_U = qt.qeye(self.num_level**self.num_transmon)   
-        if self.ctrl_noise: 
+        if self.ctrl_noise or self.drifted: 
             self.ctrl_update(variation)
         else:
             self.current_variation = {}

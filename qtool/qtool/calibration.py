@@ -24,13 +24,13 @@ def calibration_loss(x, pulse_func, channel, U_target, qubit_indices, sim, metho
     total_pulse[:,channel] = pulse
     return -sim.pulse_average_fidelity(total_pulse, U_target, qubit_indices, method=method)  
 
-def calibration(loss_func, bounds, args=(), x0=None, display=False):
+def calibration(loss_func, bounds, args=(), x0=None, display=False, verbose=True):
     '''Simple calibration'''
     if x0 is None:
         x0 = [np.random.uniform(*bounds[:,i]) for i in range(bounds.shape[1])]
     start = time.time()
     res = minimize(loss_func, x0, method='nelder-mead',args=args, options={'disp': display}, bounds=Bounds(*bounds))
-    print(f'Time taken: {time.time()-start:.1f}s, f = {res.fun:.6f}, x = {res.x}')
+    if verbose: print(f'Time taken: {time.time()-start:.1f}s, f = {res.fun:.6f}, x = {res.x}')
     return res.x,res.fun
 
 ################### EXPERIMENT ######################

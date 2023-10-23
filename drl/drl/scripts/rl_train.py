@@ -50,7 +50,7 @@ if __name__ == "__main__":
         logdir = config_file[0].replace('/params.pkl','')
         logger_creator = rllib_log_creator_checkpoint(logdir+f'/from_chpt{str(istart).zfill(6)}'+args.rstudy) 
         config = pickle.load(open(config_file[0], "rb"))
-        # config['exploration_config']['random_timesteps'] = 0
+        config['exploration_config']['random_timesteps'] = args.randomtimesteps
         # config['exploration_config']['initial_scale'] = 0.1
         
         ## need time to make this restart change more generally ##
@@ -58,6 +58,13 @@ if __name__ == "__main__":
             config['env_config']['qsim_params']['ctrl_noise'] = args.rctrlnoise
         if args.rctrlnoisedist is not None:
             config['env_config']['qsim_params']['ctrl_noise_dist'] = args.rctrlnoisedist
+        if args.rseed is not None:
+            config['seed'] = int(args.rseed)
+        if args.drift is not None:        
+            variation = pickle.load(open(f'../../../data/{args.drift}.pkl', 'rb'))
+            config['env_config']['qsim_params']['fixed_variation'] = variation
+        
+        
         # env_config = transmon_kw(args)
         # for key in env_config.keys():
         #     print(env_config[key])
