@@ -352,7 +352,7 @@ def get_trace(operator, pauli):
 
 #------------------------------------- Gate fidelity -------------------------------------#
 
-def worst_fidelity(env,method='SCQP-dm-0',bounds=None,init_guess=None,overlap_args=(None,None)):
+def worst_fidelity(env,method='SCQP-dm-0',bounds=None,init_guess=None,overlap_args=(None,[None])):
     '''
     Input: ndarray of shape [num_level^2^N,basis_size]
     Allowed method:
@@ -370,12 +370,12 @@ def worst_fidelity(env,method='SCQP-dm-0',bounds=None,init_guess=None,overlap_ar
     num_param = [int(s) for s in method.split('-') if s.isdigit()][0]
     M_qubit,theta = overlap_args
     if 'dm' in method:
-        if theta is not None:
-            raise NotImplementedError('Fix virtualZ_on_control, now can perform Z on all transmons')
-            virtualZI = virtualZ_on_control(theta,num_level=3)
+        if theta[0] is not None:
+            # raise NotImplementedError('Fix virtualZ_on_control, now can perform Z on all transmons')
+            virtualZI = Zgate_on_all(theta,num_level=3) #virtualZ_on_control(theta,num_level=3)
             correction = tensor([virtualZI,virtualZI.conj()])
         else:
-            correction = np.eye(env.get_state().shape[0])
+            correction = np.eye(env.state.shape[0])
         A,b,constraints = bloch_args(env,correction)
         
         # reduce to eigenvalue problem
@@ -471,7 +471,7 @@ def bloch_args(env,correction):
         Bloch representation arguments, i.e. A_ij and b_i
     '''
     num_transmon,num_level = env.sim.L,env.sim.num_level
-    evolved_basis,target_basis = correction@env.get_state(),env.target_state
+    evolved_basis,target_basis = correction@env.state,env.target_state
 
     eps = 5e-8
     if num_level == 2:
@@ -496,7 +496,7 @@ def bloch_args(env,correction):
             b = (evolved_lam8.conj() @ target_pauli + 
                  target_lam8.conj() @ evolved_pauli)
             A = (evolved_pauli.T.conj() @ target_pauli +
-                 target_pauli.T.conj() @ evolved_pauli) + c*np.eye(len(b))
+                 target_pauli.T.conj() @ evolved_pauli) + 2*c*np.eye(len(b))
             constraints = None
             
         elif num_transmon == 2:

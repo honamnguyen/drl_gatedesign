@@ -43,7 +43,7 @@ class ContinuousTransmonEnv(gym.Env):
         self.target_unitary = S@kw['target_unitary']@S.T.conj()
         self.target_state = tensor([self.target_unitary,self.target_unitary.conj()]) @ kw['init_state']
         
-        self.correction_angle = True if self.sim.L == 2 else False
+        self.correction_angle = True # if self.sim.L == 2 else False
         self.state = self.init_state
         if self.init_ket is not None:
             self.ket = self.init_ket
