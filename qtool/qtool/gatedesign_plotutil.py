@@ -9,6 +9,7 @@ def get_data(run, chpt, data_path, rl=True, verbose=True):
         file = glob.glob(f'{data_path}/two_qubit_gate/theory_{run}*{chpt}.pkl')
 
     if len(file) != 1:
+        print(f'{data_path}/ray_results/*{run}*/RLPulse*map*{chpt}*')
         print(file)
         raise ValueError
     if verbose: print(file[0])

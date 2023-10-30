@@ -22,7 +22,7 @@ if __name__ == '__main__':
     parser.add_argument('-old',default='',help='Look into old_ray_results.')
     args = parser.parse_args()
 
-    for run in args.runs.split('_'):
+    for run in args.runs.split(','):
         ray_path = f'../../../data/{args.old}ray_results/'
         param_file = glob.glob(f'{ray_path}*{run}*/params.pkl')[0]
         event_files = glob.glob(f'{ray_path}*{run}*/events*')
