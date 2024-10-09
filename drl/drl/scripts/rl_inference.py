@@ -46,9 +46,24 @@ if __name__ == '__main__':
     # ind = np.array(config['env_config']['channels'][::2])//2
     ind = np.array(config['env_config']['channels'])
     channels = np.array(['d0','u01','d1','u10'])[ind]
-    for checkpoint in glob.glob(f'{run}/checkpoint*'):
-        if args.chpt not in checkpoint:
-            continue
+    
+    if 'range' in args.chpt:
+        vmin, vmax, step = [int(x) for x in args.chpt.replace('range_','').split('_')]
+        chpts = np.arange(vmin,vmax+step,step) #[::-1]
+    else:
+        chpts = [int(x) for x in args.chpt.split('_')]
+    for chpt in chpts:
+        chpt = str(int(100*chpt)).zfill(6)
+        checkpoints = glob.glob(f'{run}/checkpoint*{chpt}')
+        if len(checkpoints) != 1:
+            print(f'{run}/checkpoint*{chpt}')
+            print(checkpoints)
+            raise ValueError
+        checkpoint = checkpoints[0]
+        
+    # for checkpoint in glob.glob(f'{run}/checkpoint*'):
+    #     if args.chpt not in checkpoint:
+    #         continue
         agent.restore(checkpoint)        
         done = False
         obs = env.reset()
