@@ -7,7 +7,6 @@ conda activate envname
 ```
 - Run the followwing in to install the required packages
 ```
-conda install -c weinbe58 quspin
 pip install -r requirements.txt
 pip install -e .
 ```
