@@ -32,9 +32,12 @@ conda activate julius
 # python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q1_seed1_dur160dt_seg8_sub0.02_avg_hid50,100,50 -numtransmon 1 -targetgate X90 -IBMbackend valencia -IBMqubits 1 -seed 1 -duration 160 -numseg 8 -subactionscale 0.02 -channels 0 -evolvemethod TISE -rewardtype average -hidsizes 50,100,50
 
 ### Sinlge gates in 2 transmon setting
-# python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q01_seed1_dur160dt_seg20_sub0.1_chan2_TISE_avg_hid100,200,100 -targetgate IX90 -IBMbackend valencia -IBMqubits 01 -seed 1 -duration 160 -numseg 20 -subactionscale 0.1 -channels 2 -evolvemethod TISE -rewardtype average -hidsizes 100,200,100
+python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed1_dur45dt_seg10_sub0.1_chan2_TISE_avg_hid100,200,100 -targetgate IX90 -IBMbackend valencia -IBMqubits 10 -seed 1 -duration 45 -numseg 10 -subactionscale=0.1 -channels 2 -evolvemethod TISE -rewardtype average -hidsizes 100,200,100 -numiter=2000
 
-python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q01_seed1_dur160dt_seg20_sub0.1_chan2_TISE_avg -targetgate IX90 -IBMbackend valencia -IBMqubits 01 -seed 1 -duration 160 -numseg 20 -subactionscale 0.1 -channels 2 -evolvemethod TISE -rewardtype average
+python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q10_seed1_dur45dt_seg10_sub0.2_chan2_TISE_avg_hid100,200,100 -targetgate IX90 -IBMbackend valencia -IBMqubits 10 -seed 1 -duration 45 -numseg 10 -subactionscale=0.2 -channels 2 -evolvemethod TISE -rewardtype average -hidsizes 100,200,100 -numiter=2000
+
+
+# python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q01_seed1_dur160dt_seg20_sub0.1_chan2_TISE_avg -targetgate IX90 -IBMbackend valencia -IBMqubits 01 -seed 1 -duration 160 -numseg 20 -subactionscale 0.1 -channels 2 -evolvemethod TISE -rewardtype average
 
 # python rl_train.py -numworkers 4 -study linux_4w_IBMvalencia_q01_seed1_dur160dt_seg8_sub0.3_chan02_avg -targetgate IX90 -IBMbackend valencia -IBMqubits 01 -seed 1 -duration 160 -numseg 8 -subactionscale 0.3 -channels 02 -rewardtype average #-hidsizes 100,200,100
 
